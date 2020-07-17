@@ -7,11 +7,8 @@ library(caret)
 library(pROC)
 library(recipes) # could also load the tidymodels package
 library(corrplot)
-
-library(data.table) # data mgmt
-library(gtools) # combination
-library(ggplot2) # graphics
-library(plotly) # interactive graphics
+library(lsr)
+library(ggcorrplot)
 
 #seed for replication
 set.seed(7)
@@ -19,23 +16,28 @@ set.seed(7)
 # set up so that all variables of tibbles are printed
 options(dplyr.width = Inf)
 
+###--------------------------------------------------------###
+###------------------------LOAD DATA-----------------------###
 #make the working directory
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 list.files('./Data')
 
-datainput = read_delim('./Data/australian.dat', col_names = FALSE, delim = ' ')
+datainput = read_delim('./Data/german.data', col_names = FALSE, delim =  ' ', trim_ws = TRUE, na = c("", "NA"))
 
 #display information
 names(datainput)
 partition(skim(datainput))
 
-#rename
-colnames(datainput) <- c("X1","X2","X3","X4","X5","X6","X7","X8","X9","X10","X11","X12","X13","X14","Approval")
-# datainput <- datainput  %>%
-#   mutate(X4 = as.character(X4)) %>%
-#   mutate(X6 = as.character(X6)) %>%
-#   mutate(X4 = recode(X4 , `1` = "p", `2` = "g", `3` = "gg", .default = "D")) %>%
-#   mutate(X6 = recode(X6 ,`1` = "ff", `2` = "dd", `3` = "j", `4` = "bb", `5` = "v", `6` = "n", `7` = "o", `8` = "h", `9` = "z", .default = "D"))
+#rename 
+colnames(datainput) <- c("CheckingAccount","DurationInMonth","CreditHistory","Purpose","CreditAmount","SavingsAccount","PresentEmploymentSince",
+                         "DisposableIncome","PersonalStatus","Guarantors","ResidenceSince","Property","Age","OtherInstallmentPlans","Housing",
+                         "NumberCredits","Job","NbrP","Telephone","foreignWorker", "Approval")
+#transform (https://juba.github.io/tidyverse/07-import.html )
+# (https://juba.github.io/tidyverse/09-recodages.html)
+# (http://larmarange.github.io/analyse-R/recodage.html)
+datainput <- datainput %>%   
+  mutate(Approval = recode(Approval , `1` = 0L, `2` = 1L, .default = 1L)) 
+###--------------------------------------------------------###
 
 
 
@@ -75,9 +77,8 @@ model.matrix(~0+., data=datainputcor) %>%
   ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
 ###--------------------------------------------------------###
 
-
-
-
+###--------------------------------------------------------###
+###----------------------MODELING--------------------------###
 #start preparing
 rec<-recipe(~.,data = datainput)%>% 
   add_role(Approval,new_role = 'outcome') %>% 
@@ -95,7 +96,8 @@ training1_TEST <- training1[-trainIndex,] #testing data (25% of data)
 
 summary(rec)
 
-
+##--------------- logistic regression--------------------##
+#ALL Datas
 model_glm = glm(Approval ~., 
                 data = training1_TRAIN, 
                 family = "binomial")
@@ -108,3 +110,21 @@ residuals(model_glm, type="deviance") # residuals
 
 test_prob = round(predict(model_glm, newdata = training1_TEST, type = "response"), 0) 
 test_roc = roc(training1_TEST$Approval ~ test_prob, plot = TRUE, print.auc = TRUE)
+
+##Simple model
+var_simple_glm = c("CheckingAccount","DurationInMonth","Purpose", "SavingsAccount", "Guarantors")
+simple_logit_model = glm(reformulate(termlabels = var_simple_glm, response = "Approval"),
+                         data = training1_TRAIN, family = binomial(link = "logit"))
+test_prob_simple = round(predict(simple_logit_model, newdata = training1_TEST, type = "response"), 0) 
+test_roc_simple = roc(training1_TEST$Approval ~ test_prob_simple, plot = TRUE, print.auc = TRUE)
+
+anova(model_glm, var_simple_glm, test="Chisq")
+
+
+##--------------- Other Model --------------------##
+library(randomForest)
+model_random_forest <- randomForest(Approval ~ ., data=training1_TRAIN, maxnodes=5, ntree=30)
+print(model_random_forest)
+test_prob_rf = predict(model_random_forest, newdata = training1_TEST, type = "response")
+test_roc_simple = roc(training1_TEST$Approval ~ test_prob_rf, plot = TRUE, print.auc = TRUE)
+###--------------------------------------------------------###
