@@ -1,0 +1,2 @@
+  # Création d'une nouvelle variable: catégorielle
+  mutate(pop_cat = ifelse(total < 10000, "<10000", ">=10000"))
