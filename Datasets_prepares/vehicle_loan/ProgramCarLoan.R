@@ -35,14 +35,11 @@ colnames <- names(datainput)
 names(datainput)
 
 
-
-
-
-
-
+#https://www.kaggle.com/arpitjain007/logistic-regression
 
 datainputreduced <- datainput  %>%
-  select (ltv,
+  select (
+          ltv,
           disbursed_amount,
           NO.OF_INQUIRIES,
           Date.of.Birth,
@@ -56,15 +53,50 @@ datainputreduced <- datainput  %>%
           disbursed_amount,
           PERFORM_CNS.SCORE.DESCRIPTION,
           DELINQUENT.ACCTS.IN.LAST.SIX.MONTHS,
-          loan_default,
           SEC.NO.OF.ACCTS,
           #PRI.CURRENT.BALANCE,
-          PRI.ACTIVE.ACCTS) %>%
+          PRI.ACTIVE.ACCTS,
+          AVERAGE.ACCT.AGE,
+          CREDIT.HISTORY.LENGTH,
+          
+          NEW.ACCTS.IN.LAST.SIX.MONTHS,
+          SEC.INSTAL.AMT,
+          PRIMARY.INSTAL.AMT,
+          SEC.DISBURSED.AMOUNT,
+          SEC.SANCTIONED.AMOUNT,
+          SEC.CURRENT.BALANCE,
+          SEC.OVERDUE.ACCTS,
+          SEC.ACTIVE.ACCTS,
+          loan_default,
+          
+          
+          manufacturer_id,
+          Current_pincode_ID,
+          Employee_code_ID,
+          MobileNo_Avl_Flag,
+          Aadhar_flag,
+          PAN_flag,
+          Driving_flag,
+          
+          Passport_flag,
+          PERFORM_CNS.SCORE,
+          PERFORM_CNS.SCORE.DESCRIPTION,
+          PRI.NO.OF.ACCTS,
+          PRI.ACTIVE.ACCTS,
+          PRI.OVERDUE.ACCTS,
+          PRI.CURRENT.BALANCE,
+          PRI.SANCTIONED.AMOUNT, 
+          PRI.DISBURSED.AMOUNT) %>%
   mutate(replace_na(datainput$Employment.Type)) %>%
   mutate(State_ID =  as.factor(State_ID)) %>%
   mutate(branch_id =  as.factor(branch_id)) %>%
   mutate(loan_default =  as.factor(loan_default)) %>%
-  mutate(VoterID_flag =  as.factor(VoterID_flag)) 
+  mutate(VoterID_flag =  as.factor(VoterID_flag)) %>%
+  mutate(AAA = as.integer((as.numeric(str_match_all( datainput$AVERAGE.ACCT.AGE,"\\d+(?=yrs)")) *12 
+         + as.numeric(str_match_all( datainput$AVERAGE.ACCT.AGE,"\\d+(?=mon)"))))) %>%
+  mutate(CHL = (as.numeric(str_match_all( datainput$CREDIT.HISTORY.LENGTH,"\\d+(?=yrs)")) *12 
+         + as.numeric(str_match_all( datainput$CREDIT.HISTORY.LENGTH,"\\d+(?=mon)"))))
+  
 
 
 datainputreduced$PERFORM_CNS.SCORE.DESCRIPTION[datainputreduced$PERFORM_CNS.SCORE.DESCRIPTION %in% 
@@ -88,12 +120,12 @@ partition(skim(datainputreduced))
 
 ##############################################################
 ###--------------------------------------------------------###
-###----------------- Analyse unnovarié ---------------###
+###----------------- Analyse univarié ---------------###
 hist(datainputreduced$NbrYear, main = "Age des clients", 
      xlab = "Age", ylab = "Effectif")
 boxplot(datainputreduced$NbrYear, main = "Age des clients", 
         ylab = "Age")
-
+#le truc en matrix de kaggle
 
 ##############################################################
 ###--------------------------------------------------------###
@@ -110,22 +142,88 @@ chisq.test(tcd)
 chisq.residuals(tcd)
 cramer.v(tcd)
 
+#faire graph distrub supperposés 0-1 sur variavle continue et significative / non signif
+
+
 ##############################################################
 ###--------------------------------------------------------###
 ###----------------- Analyse of correlation ---------------###
+# datainputcor <- datainputreduced  %>%
+#   select (
+#           loan_default,
+#           NO.OF_INQUIRIES,
+#           State_ID,
+#           branch_id,
+#           Employment.Type,
+#           PERFORM_CNS.SCORE.DESCRIPTION,
+#           VoterID_flag,
+#           SEC.NO.OF.ACCTS,
+#           PRI.ACTIVE.ACCTS
+#           ) %>%
+#   slice(1:5000)
+
+# datainputcor <- datainputreduced  %>%
+#   select (ltv, #
+#           disbursed_amount, #
+#           NO.OF_INQUIRIES,
+#           Date.of.Birth,
+#           asset_cost, #
+#           SEC.ACTIVE.ACCTS,
+#           DELINQUENT.ACCTS.IN.LAST.SIX.MONTHS,
+#           loan_default,
+#           AAA,
+#           CHL) %>%
+#   slice(1:5000)
+
+# datainputcor <- datainputreduced  %>%
+#   select (          NEW.ACCTS.IN.LAST.SIX.MONTHS,
+#                     SEC.INSTAL.AMT,
+#                     PRIMARY.INSTAL.AMT,#
+#                     SEC.DISBURSED.AMOUNT,
+#                     SEC.SANCTIONED.AMOUNT,
+#                     SEC.CURRENT.BALANCE,
+#                     SEC.OVERDUE.ACCTS,
+#                     SEC.ACTIVE.ACCTS,
+#                     loan_default,) %>%
+#   slice(1:5000)
+
+
+
+# datainputcor <- datainputreduced  %>%
+#   select (                    manufacturer_id,
+#                               Current_pincode_ID,#
+#                               Employee_code_ID,#
+#                               MobileNo_Avl_Flag,
+#                               Aadhar_flag,
+#                               PAN_flag,
+#                               Driving_flag,
+#                     loan_default,) %>%
+#   slice(1:5000)
+
+# datainputcor <- datainputreduced  %>%
+#   select (                    Current_pincode_ID,
+#                               Employee_code_ID,
+#                               PRIMARY.INSTAL.AMT,
+#                               asset_cost,
+#                               disbursed_amount,
+#                               ltv,
+#                               loan_default,) %>%
+#   slice(1:5000)
+
 datainputcor <- datainputreduced  %>%
-  select (NO.OF_INQUIRIES,
-          State_ID,
-          branch_id,
-          Employment.Type,
-          PERFORM_CNS.SCORE.DESCRIPTION,
-          loan_default,
-          VoterID_flag,
-          SEC.NO.OF.ACCTS,
-          PRI.CURRENT.BALANCE,
-          PRI.ACTIVE.ACCTS) %>%
-  slice(1:50000)
-  
+  select (                              Passport_flag,
+                                        PERFORM_CNS.SCORE,#
+                                        PERFORM_CNS.SCORE.DESCRIPTION,
+                                        PRI.NO.OF.ACCTS,
+                                        PRI.ACTIVE.ACCTS,
+                                        PRI.OVERDUE.ACCTS,
+                                        PRI.CURRENT.BALANCE,#
+                                        PRI.SANCTIONED.AMOUNT,# 
+                                        PRI.DISBURSED.AMOUNT,#
+                              loan_default,) %>%
+  slice(1:5000)
+
+
 # function to get chi square p value and Cramers V
 fCramerFunction = function(x,y) {
   #message(sprintf(" %s || %s", x, y))
@@ -154,7 +252,7 @@ df_res %>%
 
 ##split
 # Resulting bins have an equal number of observations in each group
-datainputreduced[, "wt2"] <- bin_data(datainputreduced$NbrYear, bins=3, binType = "quantile")
+datainputreduced[, "wt2"] <- bin_data(datainputreduced$NbrYearRelation, bins=3, binType = "quantile")
 
 #creating indices
 trainIndex <- createDataPartition(datainputreduced$loan_default,p=0.3,list=FALSE)
@@ -165,22 +263,19 @@ training1_TEST <- datainputreduced[-trainIndex,] #testing data (25% of data)
 
 
 var_simple_glm = reformulate(termlabels = c("ltv",
-                                            #"State_ID",
                                             "disbursed_amount",
-                                            "branch_id",
-                                            "NO.OF_INQUIRIES",
-                                            "supplier_id",
                                             "Employment.Type",
-                                            "VoterID_flag",
+                                            #"PRIMARY.INSTAL.AMT",
                                             "asset_cost",
-                                            "SEC.ACTIVE.ACCTS",
+                                            "Current_pincode_ID",
+                                            "Employee_code_ID",
                                             "PERFORM_CNS.SCORE.DESCRIPTION",
-                                            "DELINQUENT.ACCTS.IN.LAST.SIX.MONTHS",
-                                            "SEC.NO.OF.ACCTS",
-                                            #"PRI.CURRENT.BALANCE",
-                                            "PRI.ACTIVE.ACCTS",
-                                            "NbrYear",
-                                            "NbrYearRelation"), 
+                                            "PRI.CURRENT.BALANCE",
+                                            #"PRI.SANCTIONED.AMOUNT",
+                                            #"PRI.DISBURSED.AMOUNT",
+                                            #"NbrYear",
+                                            "wt2"
+                                            ), 
                              response = "loan_default")
 
 
@@ -194,4 +289,6 @@ test_roc_simple = roc(training1_TEST$loan_default ~ training1_TEST$Score, plot =
 
 summary(simple_logit_model) # display results
 
+#decouper mon score par decile et croiser avec le taux de def et faire rep graphique
+#cout de bon classement et mauvais classement (risque d'être conservateur ) erreur type 1 & type2 
 
