@@ -212,9 +212,20 @@ allCombin <- data.frame(X1 = c("loan_default"),
 # apply function to each variable combination
 allCombin_res = map2_df(allCombin$X1, allCombin$X2, fCramerFunction)
 
+
+features <- c("ltv_bin",
+              "Employment.Type",
+              "Employee_code_ID",
+              "NO.OF_INQUIRIES",
+              "asset_cost_bin",
+              "Current_pincode_ID",
+              "PERFORM_CNS.SCORE.DESCRIPTION",
+              "PRI.SANCTIONED.AMOUNT_bin",
+              "BorrowerAge_bin")
+
 # create unique combinations of column names
 # sorting will help getting a better plot (upper triangular)
-df_comb = data.frame(t(combn(sort(names(datainputcor)), 2)), stringsAsFactors = F)
+df_comb = data.frame(t(combn(sort(c(features,"loan_default")), 2)), stringsAsFactors = F)
 
 # apply function to each variable combination
 df_res = map2_df(df_comb$X1, df_comb$X2, fCramerFunction)
@@ -238,21 +249,7 @@ training1_TRAIN <- datainputreduced[trainIndex,] #training data (75% of data)
 training1_TEST <- datainputreduced[-trainIndex,] #testing data (25% of data)
 
 
-var_simple_glm = reformulate(termlabels = c("ltv_bin",
-                                            #"disbursed_amount_bin",
-                                            "Employment.Type",
-                                            "Employee_code_ID",
-                                            "NO.OF_INQUIRIES",
-                                            "asset_cost_bin",
-                                            "Current_pincode_ID",
-                                            #"MobileNo_Avl_Flag",
-                                            "PERFORM_CNS.SCORE.DESCRIPTION",
-                                            #"PRI.CURRENT.BALANCE_bin",
-                                            "PRI.SANCTIONED.AMOUNT_bin",
-                                            #"PRI.DISBURSED.AMOUNT_bin",
-                                            #"supplier_id",
-                                            "BorrowerAge_bin"
-                                            ), 
+var_simple_glm = reformulate(termlabels = features, 
                              response = "loan_default")
 
 
