@@ -239,18 +239,18 @@ training1_TEST <- datainputreduced[-trainIndex,] #testing data (25% of data)
 
 
 var_simple_glm = reformulate(termlabels = c("ltv_bin",
-                                            "disbursed_amount_bin",
+                                            #"disbursed_amount_bin",
                                             "Employment.Type",
                                             "Employee_code_ID",
-                                            #"PRIMARY.INSTAL.AMT",
+                                            "NO.OF_INQUIRIES",
                                             "asset_cost_bin",
                                             "Current_pincode_ID",
-                                            #"Employee_code_ID",
+                                            #"MobileNo_Avl_Flag",
                                             "PERFORM_CNS.SCORE.DESCRIPTION",
                                             #"PRI.CURRENT.BALANCE_bin",
                                             "PRI.SANCTIONED.AMOUNT_bin",
                                             #"PRI.DISBURSED.AMOUNT_bin",
-                                            "supplier_id",
+                                            #"supplier_id",
                                             "BorrowerAge_bin"
                                             ), 
                              response = "loan_default")
