@@ -21,6 +21,13 @@ library(logiBin)
 
 #seed for replication
 set.seed(7)
+#creating indices
+reduce <- 
+
+
+
+
+
 
 # set up so that all variables of tibbles are printed
 options(dplyr.width = Inf)
@@ -29,11 +36,10 @@ options(dplyr.width = Inf)
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 list.files('./data')
 
-datainput = read_delim('./data/train.csv', col_names = TRUE, delim = ',')
-colnames <- names(datainput)
+datainput = read_delim('./data/trainRed.csv', col_names = TRUE, delim = ',')
+#write.csv(datainput[createDataPartition(datainputreduced$loan_default,p=0.1,list=FALSE),],'./data/trainRed.csv')
 
-#display information
-names(datainput)
+
 
 #detecter outliers https://statistique-et-logiciel-r.com/comment-detecter-les-outliers-avec-r/
 #https://www.r-bloggers.com/how-to-remove-outliers-in-r/
@@ -212,16 +218,41 @@ allCombin <- data.frame(X1 = c("loan_default"),
 # apply function to each variable combination
 allCombin_res = map2_df(allCombin$X1, allCombin$X2, fCramerFunction)
 
+features <- c("supplier_id",
+"ltv_bin",
+"PERFORM_CNS.SCORE.DESCRIPTION",
+"disbursed_amount_bin",
+"State_ID",
+"PRI.OVERDUE.ACCTS",
+"NO.OF_INQUIRIES",
+"DELINQUENT.ACCTS.IN.LAST.SIX.MONTHS",
+#"PRI.CURRENT.BALANCE_bin",
+"PRI.SANCTIONED.AMOUNT_bin",
+#"PRI.DISBURSED.AMOUNT_bin",
+"BorrowerAge_bin",
+#"PERFORM_CNS.SCORE",
+"Employee_code_ID")
 
-features <- c("ltv_bin",
-              "Employment.Type",
-              "Employee_code_ID",
-              "NO.OF_INQUIRIES",
-              "asset_cost_bin",
-              "Current_pincode_ID",
-              "PERFORM_CNS.SCORE.DESCRIPTION",
-              "PRI.SANCTIONED.AMOUNT_bin",
-              "BorrowerAge_bin")
+# features <- c("ltv_bin",
+#               "disbursed_amount_bin",
+#               "Employment.Type",
+#               "Employee_code_ID",
+#               #"NO.OF_INQUIRIES",
+#               "asset_cost_bin",
+#               "Current_pincode_ID",
+#               "PERFORM_CNS.SCORE.DESCRIPTION",
+#               "PRI.SANCTIONED.AMOUNT_bin",
+#               "BorrowerAge_bin")
+
+datainputreduced <- datainputreduced %>%
+  mutate(as.factor(State_ID)) %>%
+  mutate(as.factor(Employee_code_ID)) %>%
+  mutate(as.factor(ltv_bin)) %>%
+  mutate(as.factor(disbursed_amount_bin)) %>%
+  mutate(as.factor(asset_cost_bin)) %>%
+  mutate(as.factor(PERFORM_CNS.SCORE.DESCRIPTION)) %>%
+  mutate(as.factor(PRI.SANCTIONED.AMOUNT_bin)) %>%
+  mutate(as.factor(BorrowerAge_bin)) 
 
 # create unique combinations of column names
 # sorting will help getting a better plot (upper triangular)
@@ -242,7 +273,7 @@ df_res %>%
 #######################################################################################
 
 #creating indices
-trainIndex <- createDataPartition(datainputreduced$loan_default,p=0.3,list=FALSE)
+trainIndex <- createDataPartition(datainputreduced$loan_default,p=0.80,list=FALSE)
 
 #splitting data into training/testing data using the trainIndex object
 training1_TRAIN <- datainputreduced[trainIndex,] #training data (75% of data)
