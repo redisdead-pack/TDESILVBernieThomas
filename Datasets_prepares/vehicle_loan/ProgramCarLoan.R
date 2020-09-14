@@ -17,6 +17,7 @@ library(mltools)
 library(labelled)
 library(questionr)
 library(ggcorrplot)
+library(logiBin)
 
 #seed for replication
 set.seed(7)
@@ -34,6 +35,8 @@ colnames <- names(datainput)
 #display information
 names(datainput)
 
+#detecter outliers https://statistique-et-logiciel-r.com/comment-detecter-les-outliers-avec-r/
+#https://www.r-bloggers.com/how-to-remove-outliers-in-r/
 
 #https://www.kaggle.com/arpitjain007/logistic-regression
 
@@ -42,6 +45,7 @@ datainputreduced <- datainput  %>%
           ltv,
           disbursed_amount,
           NO.OF_INQUIRIES,
+          DisbursalDate,
           Date.of.Birth,
           State_ID,
           branch_id,
@@ -87,7 +91,7 @@ datainputreduced <- datainput  %>%
           PRI.CURRENT.BALANCE,
           PRI.SANCTIONED.AMOUNT, 
           PRI.DISBURSED.AMOUNT) %>%
-  mutate(replace_na(datainput$Employment.Type)) %>%
+  mutate(Employment.Type = replace_na(datainput$Employment.Type, "None")) %>%
   mutate(State_ID =  as.factor(State_ID)) %>%
   mutate(branch_id =  as.factor(branch_id)) %>%
   mutate(loan_default =  as.factor(loan_default)) %>%
@@ -112,18 +116,18 @@ datainputreduced$PERFORM_CNS.SCORE.DESCRIPTION[datainputreduced$PERFORM_CNS.SCOR
                                                    "No Bureau History Available")] <- "Not Scored"
 thisyear = year(Sys.Date())
 datainputreduced <- datainputreduced %>%
-  mutate(NbrYear = thisyear-year(dmy(Date.of.Birth))) 
+  mutate(BorrowerAge = thisyear-year(dmy(Date.of.Birth))) 
 datainputreduced <- datainputreduced %>%
-  mutate(NbrYearRelation = 12*(thisyear-year(dmy(Date.of.Birth)) + month(dmy(Date.of.Birth)))) 
+  mutate(NbrMonthRelation = 12*(thisyear-year(dmy(DisbursalDate)) + month(dmy(DisbursalDate)))) 
 
 partition(skim(datainputreduced))
 
 ##############################################################
 ###--------------------------------------------------------###
 ###----------------- Analyse univarié ---------------###
-hist(datainputreduced$NbrYear, main = "Age des clients", 
+hist(datainputreduced$BorrowerAge, main = "Age des clients", 
      xlab = "Age", ylab = "Effectif")
-boxplot(datainputreduced$NbrYear, main = "Age des clients", 
+boxplot(datainputreduced$BorrowerAge, main = "Age des clients", 
         ylab = "Age")
 #le truc en matrix de kaggle
 
@@ -145,92 +149,68 @@ cramer.v(tcd)
 #faire graph distrub supperposés 0-1 sur variavle continue et significative / non signif
 
 
+
+
+##split
+# Resulting bins have an equal number of observations in each group
+datainputreduced[, "wt2"] <- bin_data(datainputreduced$NbrYearRelation, bins=3, binType = "quantile")
+#https://nextjournal.com/eda/discretize-cont-var
+
+
+######################################################################
+## Calculate bin breaks for numeric variables with respect to their relationships with the outcome variable Churn
+library(scorecard)
+library(ggplot2)
+library(ggplotify)
+library(plotly)
+
+bins = woebin(datainputreduced[, c('ltv', 
+                                   'disbursed_amount',
+                                   'asset_cost',
+                                   'loan_default',
+                                   'PRI.CURRENT.BALANCE',
+                                   'PRI.SANCTIONED.AMOUNT',
+                                   'PRI.DISBURSED.AMOUNT',
+                                   'PRIMARY.INSTAL.AMT',
+                                   'BorrowerAge')], y = 'loan_default',  method="tree")
+
+## Visualize bins
+woebin_plot(bins$ltv)$ltv
+woebin_plot(bins$disbursed_amount)$disbursed_amount
+woebin_plot(bins$PRI.CURRENT.BALANCE)$PRI.CURRENT.BALANCE
+woebin_plot(bins$PRI.SANCTIONED.AMOUNT)$PRI.SANCTIONED.AMOUNT
+woebin_plot(bins$PRI.DISBURSED.AMOUNT)$PRI.DISBURSED.AMOUNT
+woebin_plot(bins$PRIMARY.INSTAL.AMT)$PRIMARY.INSTAL.AMT
+woebin_plot(bins$BorrowerAge)$BorrowerAge
+
+## Compare results with conditional probability density plot
+ggplotly(ggplot(datainputreduced, aes_string(datainputreduced$ltv_bin, fill = datainputreduced$loan_default)) + 
+           geom_density(position='fill', alpha = 0.5) + 
+           xlab('ltv') + labs(fill='loan_default') +
+           theme(legend.text=element_text(size=10), 
+                 axis.title=element_text(size=10)))
+
+datainputreduced = woebin_ply(datainputreduced, bins, to = 'bin')
+
+#####################################################
+
 ##############################################################
 ###--------------------------------------------------------###
 ###----------------- Analyse of correlation ---------------###
-# datainputcor <- datainputreduced  %>%
-#   select (
-#           loan_default,
-#           NO.OF_INQUIRIES,
-#           State_ID,
-#           branch_id,
-#           Employment.Type,
-#           PERFORM_CNS.SCORE.DESCRIPTION,
-#           VoterID_flag,
-#           SEC.NO.OF.ACCTS,
-#           PRI.ACTIVE.ACCTS
-#           ) %>%
-#   slice(1:5000)
-
-# datainputcor <- datainputreduced  %>%
-#   select (ltv, #
-#           disbursed_amount, #
-#           NO.OF_INQUIRIES,
-#           Date.of.Birth,
-#           asset_cost, #
-#           SEC.ACTIVE.ACCTS,
-#           DELINQUENT.ACCTS.IN.LAST.SIX.MONTHS,
-#           loan_default,
-#           AAA,
-#           CHL) %>%
-#   slice(1:5000)
-
-# datainputcor <- datainputreduced  %>%
-#   select (          NEW.ACCTS.IN.LAST.SIX.MONTHS,
-#                     SEC.INSTAL.AMT,
-#                     PRIMARY.INSTAL.AMT,#
-#                     SEC.DISBURSED.AMOUNT,
-#                     SEC.SANCTIONED.AMOUNT,
-#                     SEC.CURRENT.BALANCE,
-#                     SEC.OVERDUE.ACCTS,
-#                     SEC.ACTIVE.ACCTS,
-#                     loan_default,) %>%
-#   slice(1:5000)
-
-
-
-# datainputcor <- datainputreduced  %>%
-#   select (                    manufacturer_id,
-#                               Current_pincode_ID,#
-#                               Employee_code_ID,#
-#                               MobileNo_Avl_Flag,
-#                               Aadhar_flag,
-#                               PAN_flag,
-#                               Driving_flag,
-#                     loan_default,) %>%
-#   slice(1:5000)
-
-# datainputcor <- datainputreduced  %>%
-#   select (                    Current_pincode_ID,
-#                               Employee_code_ID,
-#                               PRIMARY.INSTAL.AMT,
-#                               asset_cost,
-#                               disbursed_amount,
-#                               ltv,
-#                               loan_default,) %>%
-#   slice(1:5000)
-
-datainputcor <- datainputreduced  %>%
-  select (                              Passport_flag,
-                                        PERFORM_CNS.SCORE,#
-                                        PERFORM_CNS.SCORE.DESCRIPTION,
-                                        PRI.NO.OF.ACCTS,
-                                        PRI.ACTIVE.ACCTS,
-                                        PRI.OVERDUE.ACCTS,
-                                        PRI.CURRENT.BALANCE,#
-                                        PRI.SANCTIONED.AMOUNT,# 
-                                        PRI.DISBURSED.AMOUNT,#
-                              loan_default,) %>%
-  slice(1:5000)
 
 
 # function to get chi square p value and Cramers V
 fCramerFunction = function(x,y) {
   #message(sprintf(" %s || %s", x, y))
-  tbl = datainputcor %>% select(x,y) %>% table()
+  tbl = datainputreduced %>% slice(1:7000) %>% select(x,y) %>% table()
   chisq_pval = round(chisq.test(tbl)$p.value, 2)
   cramV = round(cramer.v(tbl), 2) 
   data.frame(x, y, chisq_pval, cramV) }
+
+allCombin <- data.frame(X1 = c("loan_default"),
+                        X2 = names(datainputreduced))
+# apply function to each variable combination
+allCombin_res = map2_df(allCombin$X1, allCombin$X2, fCramerFunction)
 
 # create unique combinations of column names
 # sorting will help getting a better plot (upper triangular)
@@ -250,10 +230,6 @@ df_res %>%
 
 #######################################################################################
 
-##split
-# Resulting bins have an equal number of observations in each group
-datainputreduced[, "wt2"] <- bin_data(datainputreduced$NbrYearRelation, bins=3, binType = "quantile")
-
 #creating indices
 trainIndex <- createDataPartition(datainputreduced$loan_default,p=0.3,list=FALSE)
 
@@ -262,19 +238,20 @@ training1_TRAIN <- datainputreduced[trainIndex,] #training data (75% of data)
 training1_TEST <- datainputreduced[-trainIndex,] #testing data (25% of data)
 
 
-var_simple_glm = reformulate(termlabels = c("ltv",
-                                            "disbursed_amount",
+var_simple_glm = reformulate(termlabels = c("ltv_bin",
+                                            "disbursed_amount_bin",
                                             "Employment.Type",
-                                            #"PRIMARY.INSTAL.AMT",
-                                            "asset_cost",
-                                            "Current_pincode_ID",
                                             "Employee_code_ID",
+                                            #"PRIMARY.INSTAL.AMT",
+                                            "asset_cost_bin",
+                                            "Current_pincode_ID",
+                                            #"Employee_code_ID",
                                             "PERFORM_CNS.SCORE.DESCRIPTION",
-                                            "PRI.CURRENT.BALANCE",
-                                            #"PRI.SANCTIONED.AMOUNT",
-                                            #"PRI.DISBURSED.AMOUNT",
-                                            #"NbrYear",
-                                            "wt2"
+                                            #"PRI.CURRENT.BALANCE_bin",
+                                            "PRI.SANCTIONED.AMOUNT_bin",
+                                            #"PRI.DISBURSED.AMOUNT_bin",
+                                            "supplier_id",
+                                            "BorrowerAge_bin"
                                             ), 
                              response = "loan_default")
 
