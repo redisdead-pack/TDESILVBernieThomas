@@ -177,6 +177,7 @@ bins = woebin(datainputreduced[, c('ltv',
                                    'PRI.CURRENT.BALANCE',
                                    'PRI.SANCTIONED.AMOUNT',
                                    'PRI.DISBURSED.AMOUNT',
+                                   'PERFORM_CNS.SCORE.DESCRIPTION',
                                    'PRIMARY.INSTAL.AMT',
                                    'BorrowerAge')], y = 'loan_default',  method="tree")
 
@@ -188,6 +189,7 @@ woebin_plot(bins$PRI.SANCTIONED.AMOUNT)$PRI.SANCTIONED.AMOUNT
 woebin_plot(bins$PRI.DISBURSED.AMOUNT)$PRI.DISBURSED.AMOUNT
 woebin_plot(bins$PRIMARY.INSTAL.AMT)$PRIMARY.INSTAL.AMT
 woebin_plot(bins$BorrowerAge)$BorrowerAge
+woebin_plot(bins$PERFORM_CNS.SCORE.DESCRIPTION)$PERFORM_CNS.SCORE.DESCRIPTION
 
 ## Compare results with conditional probability density plot
 ggplotly(ggplot(datainputreduced, aes_string(datainputreduced$ltv_bin, fill = datainputreduced$loan_default)) + 
@@ -218,9 +220,9 @@ allCombin <- data.frame(X1 = c("loan_default"),
 # apply function to each variable combination
 allCombin_res = map2_df(allCombin$X1, allCombin$X2, fCramerFunction)
 
-features <- c("supplier_id",
+features <- c(#"supplier_id",
 "ltv_bin",
-"PERFORM_CNS.SCORE.DESCRIPTION",
+"PERFORM_CNS.SCORE.DESCRIPTION_bin",
 "disbursed_amount_bin",
 "State_ID",
 "PRI.OVERDUE.ACCTS",
@@ -229,9 +231,8 @@ features <- c("supplier_id",
 #"PRI.CURRENT.BALANCE_bin",
 "PRI.SANCTIONED.AMOUNT_bin",
 #"PRI.DISBURSED.AMOUNT_bin",
-"BorrowerAge_bin",
-#"PERFORM_CNS.SCORE",
-"Employee_code_ID")
+"BorrowerAge_bin")
+#"PERFORM_CNS.SCORE")
 
 # features <- c("ltv_bin",
 #               "disbursed_amount_bin",
@@ -250,7 +251,7 @@ datainputreduced <- datainputreduced %>%
   mutate(as.factor(ltv_bin)) %>%
   mutate(as.factor(disbursed_amount_bin)) %>%
   mutate(as.factor(asset_cost_bin)) %>%
-  mutate(as.factor(PERFORM_CNS.SCORE.DESCRIPTION)) %>%
+  mutate(as.factor(PERFORM_CNS.SCORE.DESCRIPTION_bin)) %>%
   mutate(as.factor(PRI.SANCTIONED.AMOUNT_bin)) %>%
   mutate(as.factor(BorrowerAge_bin)) 
 
