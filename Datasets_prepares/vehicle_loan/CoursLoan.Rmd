@@ -1,0 +1,278 @@
+---
+title: "Part1 Cours ESILV"
+author: "Thomas & Bernie"
+date: "17/09/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+# Les librairies utiles & les données
+### Introduction
+Les institutions financières subissent des pertes importantes en raison du défaut de prêts automobiles. Cela a conduit à un resserrement de la souscription de crédits automobiles et à une augmentation des taux de rejet de crédits automobiles. La nécessité d'un meilleur modèle de notation du risque de crédit est par conséquent soulevé par la directions de l'institutions "SuperCar4Everyone". Cela justifie une étude pour estimer les drivers ou variables prédictrices du défaut de crédit automobile. 
+
+"SuperCar4Everyone" vous a donc embauché pour prédire avec précision la probabilité de défaut de l'emprunteur sur un prêt de véhicule dans le premier EMI (Equated Monthly Versements). l'EMI correspond à est un montant de paiement fixe effectué par un emprunteur à un prêteur à une date précise chaque mois civil. Des versements mensuels égaux sont utilisés pour rembourser les intérêts et le principal chaque mois, de sorte que sur un certain nombre d'années, le prêt soit remboursé intégralement. 
+
+Les informations suivantes concernant le prêt et le prêteur sont fournies:
+
+- Informations sur le prêteur (données démographiques telles que l'âge, le revenu, la preuve d'identité, etc.)
+- Informations sur le prêt (détails du décaissement, montant, IME, ratio prêt / valeur, etc.)
+- Données et historique du bureau (score du bureau, nombre de comptes actifs, statut des autres prêts, historique de crédit, etc.)
+
+Cela garantira que les clients capables de rembourser ne seront pas rejetés et que des critères discriminants pourront être identifiés et pourront être utilisés par "SuperCar4Everyone" pour minimiser les taux de défaut.
+
+
+### Les librairies
+```{r credit, echo=TRUE,  message=FALSE, warning=FALSE}
+# load useful libraries
+library(tidyverse)
+library(dplyr)
+library(knitr)
+library(skimr)
+library(lubridate)
+library(gridExtra)
+library(scorecard)
+library(ggplot2)
+library(ggplotify)
+library(plotly)
+```
+
+### Les Datas
+
+L’entreprise « SuperCar4Everyone » malgré leur système de données logé dans le cloud, l’entreprise nous met à disposition la forme la plus évoluée de stockage de données. Ce CSV contient un certain nombre de d’informations et un expert métier est là pour répondre à vos questions.
+
+Contenu du fichier CSV:
+
+- Primary accounts are those which the customer has taken for his personal use
+- Secondary accounts are those which the customer act as a co-applicant or gaurantor
+
+```{r credit1, echo=FALSE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+#make the working directory
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+datainput = read_delim('./data/data_dictionary.csv', col_names = TRUE, delim = ',')
+kable(datainput)
+```
+
+
+# Le snortling
+### Chargement des fichiers et premières impressions
+
+```{r credit2, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+datainput = read_delim('./data/trainRed.csv', col_names = TRUE, delim = ',')
+skim(datainput)
+```
+
+La préhension de la data via la fonction ‘skim’ est déjà un bon début car il nous donne l’idée de la population des contrats à étudier `r nrow(datainput)` et de l'interprétation des variables en 'character' ou 'numeric'. Elle nous indique les valeurs manquantes et le poid de ces 'n_missing'.
+
+Le format de certaines variables nécessite d’être retravaillé, une rapide vue des variable permet de se faire une première idée de l’état de l’art. 
+
+```{r credit3, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+kable(head(datainput%>%
+  select (ltv,
+          disbursed_amount,
+          Date.of.Birth,
+          supplier_id,
+          Employment.Type,
+          PERFORM_CNS.SCORE,
+          PERFORM_CNS.SCORE.DESCRIPTION,
+          loan_default,
+          AVERAGE.ACCT.AGE,
+          CREDIT.HISTORY.LENGTH)))
+```
+
+### Echange avec les métiers
+les étudiant doivent maintenant lire les descriptions des variables présentes, regarder les distributions et les premières valeurs et faire poser des questions aux métiers pour une près sélection des variables et une étape de wrangling.
+
+
+
+# Deep dive
+### Wrangling et mise en forme
+Dans un premier temps le re-typage des variables est nécessaire, certains ID peuvent être interprétés comme des valeurs numériques alors qu’elles sont des modalités, le principe est le même pour les booléens ou les modalités.
+
+```{r credit4, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+dataWrangled <- datainput  %>%
+  mutate(Employment.Type = replace_na(datainput$Employment.Type, "None")) %>%
+  mutate(State_ID =  as.factor(State_ID)) %>%
+  mutate(branch_id =  as.factor(branch_id)) %>%
+  mutate(loan_default =  as.factor(loan_default)) %>%
+  mutate(VoterID_flag =  as.factor(VoterID_flag)) 
+
+```
+
+Des modalités trop fragmentées sont difficilement interprétables par les métiers et n’apportent pas vraiment de plus-value métier. Un regroupement plus macro est souvent nécessaire.
+
+```{r credit5, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+summary(as.factor(dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION))
+
+dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION[dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION %in% 
+  c("C-Very Low Risk", "A-Very Low Risk", "B-Very Low Risk","D-Very Low Risk","F-Low Risk","E-Low Risk","G-Low Risk")] <- "Low"
+dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION[dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION %in% 
+  c("H-Medium Risk", "I-Medium Risk")] <- "Medium"
+dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION[dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION %in% 
+  c("J-High Risk", "K-High Risk","L-Very High Risk", "M-Very High Risk")] <- "High"
+dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION[dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION %in% 
+  c("Not Scored: More than 50 active Accounts found", 
+    "Not Scored: Only a Guarantor",
+    "Not Scored: Not Enough Info available on the customer",
+    "Not Scored: No Activity seen on the customer (Inactive)",
+    "Not Scored: No Updates available in last 36 months",
+    "Not Scored: Sufficient History Not Available",
+    "No Bureau History Available")] <- "Not Scored"
+
+summary(as.factor(dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION))
+```
+
+Pour les problèmes plus complexes, les un parsing plus fin est nécessaire pour des données <span style="color: blue;">`r head(datainput$AVERAGE.ACCT.AGE)` </span>, l’utilisation d’une expression régulière peut-être une solution. Ici nous voulons un time span et non une modalité (2yrs 3monts => 27 months). 
+
+```{r credit6, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+dataWrangled <- dataWrangled %>%
+  mutate(AAA = as.integer((as.numeric(str_match_all( datainput$AVERAGE.ACCT.AGE,"\\d+(?=yrs)")) *12 
+         + as.numeric(str_match_all( datainput$AVERAGE.ACCT.AGE,"\\d+(?=mon)"))))) %>%
+  mutate(CHL = (as.numeric(str_match_all( datainput$CREDIT.HISTORY.LENGTH,"\\d+(?=yrs)")) *12 
+         + as.numeric(str_match_all( datainput$CREDIT.HISTORY.LENGTH,"\\d+(?=mon)"))))
+
+kable(head(dataWrangled%>%
+  select (AVERAGE.ACCT.AGE,
+          AAA,
+          CREDIT.HISTORY.LENGTH,
+          CHL)))
+```
+
+La même question se pose sur les dates, une maturité ou un time span est toujours plus facilement interprétable qu’une date fixe. Elle donne une dimension de temporalité appréciée par les modélisateur et le métier. 
+
+```{r credit7, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+thisyear = year(Sys.Date())
+dataWrangled <- dataWrangled %>%
+  mutate(BorrowerAge = thisyear-year(dmy(Date.of.Birth))) 
+dataWrangled <- dataWrangled %>%
+  mutate(NbrMonthRelation = 12*(thisyear-year(dmy(DisbursalDate)) + month(dmy(DisbursalDate))))
+
+kable(head(dataWrangled%>%
+  select (Date.of.Birth,
+          BorrowerAge,
+          DisbursalDate,
+          NbrMonthRelation)))
+```
+
+Nous pouvons ainsi regarder les données travaillées
+
+ - pour les variables numériques:
+
+```{r credit8, echo=TRUE,  message=FALSE, warning=FALSE, fig.fullwidth=TRUE,  fig.height= 15}
+dataWrangled%>%
+  select_if(is.numeric) %>%
+  gather(cols, value) %>%
+  ggplot(aes(x = value)) + geom_histogram() + facet_wrap( .~cols, scales = "free"  ,ncol = 3)
+```
+
+ - pour les variables modales:
+
+```{r credit9, echo=TRUE,  message=FALSE, warning=FALSE}
+dataWrangled%>%
+  select_if(is.factor) %>%
+  gather(cols, value) %>%
+  ggplot(aes(x = value)) + geom_histogram(stat = "count") + facet_wrap( .~cols, scales = "free"  ,ncol = 3)
+```
+
+### Discussion avec le business
+
+Les modélisateurs doivent revenir avec des questions pour le business et exclure les premières variables
+
+
+### Selection des drivers pour le modèle
+
+#### Analyses univariées
+
+Nous allons étudier une variable souvent révélatrice de la qualité de la saisie de la donnée. L’âge d’un Obligor nous permet souvent de détecter des valeurs fausses ou aberrantes. 
+
+```{r credit10, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center'}
+summary(dataWrangled$BorrowerAge)
+
+bx <- boxplot(dataWrangled$BorrowerAge, col = grey(0.8), main = "Age de l'emprunteur", 
+  ylab = "Heures")
+abline(h = median(dataWrangled$BorrowerAge, na.rm = TRUE), col = "navy", lty = 2)
+text(1.35, median(dataWrangled$BorrowerAge, na.rm = TRUE) + 0.15, "Médiane", 
+  col = "navy")
+Q1 <- quantile(dataWrangled$BorrowerAge, probs = 0.25, na.rm = TRUE)
+abline(h = Q1, col = "darkred")
+text(1.35, Q1 + 0.15, "Q1 : premier quartile", col = "darkred", 
+  lty = 2)
+Q3 <- quantile(dataWrangled$BorrowerAge, probs = 0.75, na.rm = TRUE)
+abline(h = Q3, col = "darkred")
+text(1.35, Q3 + 0.15, "Q3 : troisième quartile", col = "darkred", 
+  lty = 2)
+arrows(x0 = 0.7, y0 = quantile(dataWrangled$BorrowerAge, probs = 0.75, na.rm = TRUE), 
+  x1 = 0.7, y1 = quantile(dataWrangled$BorrowerAge, probs = 0.25, na.rm = TRUE), 
+  length = 0.1, code = 3)
+text(0.7, Q1 + (Q3 - Q1)/2 + 0.15, "h", pos = 2)
+mtext("L'écart inter-quartile h contient 50 % des individus", 
+  side = 1)
+abline(h = Q1 - 1.5 * (Q3 - Q1), col = "darkgreen")
+text(1.35, Q1 - 1.5 * (Q3 - Q1) + 0.15, "Q1 -1.5 h", col = "darkgreen", 
+  lty = 2)
+abline(h = Q3 + 1.5 * (Q3 - Q1), col = "darkgreen")
+text(1.35, Q3 + 1.5 * (Q3 - Q1) + 0.15, "Q3 +1.5 h", col = "darkgreen", 
+  lty = 2)
+
+bx <- ggplot2::ggplot(dataWrangled, ggplot2::aes(x=BorrowerAge, color=BorrowerAge)) +
+  ggplot2::geom_boxplot() + 
+  theme(legend.position = "none")
+
+bxDef <- ggplot2::ggplot(dataWrangled, ggplot2::aes(x=BorrowerAge, y = loan_default)) +
+  ggplot2::geom_boxplot() + 
+  theme(legend.position = "none")
+
+dpDef <- ggplot(dataWrangled, aes(x=BorrowerAge, y = loan_default )) +
+  geom_violin()+
+  geom_boxplot(width=0.1)
+grid.arrange( bx, bxDef, dpDef ,ncol=2)
+
+```
+
+#### Découpe de variables
+
+Calculate bin breaks for numeric variables with respect to their relationships with the outcome variable Churn
+
+```{r credit11, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center'}
+
+bins = woebin(dataWrangled[, c('ltv', 
+                                   'disbursed_amount',
+                                   'asset_cost',
+                                   'loan_default',
+                                   'PRI.CURRENT.BALANCE',
+                                   'PRI.SANCTIONED.AMOUNT',
+                                   'PRI.DISBURSED.AMOUNT',
+                                   'PERFORM_CNS.SCORE.DESCRIPTION',
+                                   'PRIMARY.INSTAL.AMT',
+                                   'BorrowerAge')], y = 'loan_default',  method="tree")
+
+## Visualize bins
+woebin_plot(bins$ltv)$ltv
+woebin_plot(bins$disbursed_amount)$disbursed_amount
+woebin_plot(bins$PRI.CURRENT.BALANCE)$PRI.CURRENT.BALANCE
+woebin_plot(bins$PRI.SANCTIONED.AMOUNT)$PRI.SANCTIONED.AMOUNT
+woebin_plot(bins$PRI.DISBURSED.AMOUNT)$PRI.DISBURSED.AMOUNT
+woebin_plot(bins$PRIMARY.INSTAL.AMT)$PRIMARY.INSTAL.AMT
+woebin_plot(bins$BorrowerAge)$BorrowerAge
+woebin_plot(bins$PERFORM_CNS.SCORE.DESCRIPTION)$PERFORM_CNS.SCORE.DESCRIPTION
+
+
+
+dataWrangled = woebin_ply(dataWrangled, bins, to = 'bin')
+```
+
+### Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
