@@ -40,6 +40,10 @@ library(scorecard)
 library(ggplot2)
 library(ggplotify)
 library(plotly)
+library(questionr)
+library(caret)
+library(pROC)
+library(purrr)
 ```
 
 ### Les Datas
@@ -59,7 +63,7 @@ kable(datainput)
 ```
 
 
-# Le snortling
+# Le snorkeling
 ### Chargement des fichiers et premières impressions
 
 ```{r credit2, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
@@ -101,12 +105,23 @@ dataWrangled <- datainput  %>%
   mutate(State_ID =  as.factor(State_ID)) %>%
   mutate(branch_id =  as.factor(branch_id)) %>%
   mutate(loan_default =  as.factor(loan_default)) %>%
-  mutate(VoterID_flag =  as.factor(VoterID_flag)) 
-
+  mutate(VoterID_flag =  as.factor(VoterID_flag)) %>%
+  mutate(supplier_id =  as.factor(supplier_id)) %>%
+  mutate(manufacturer_id =  as.factor(manufacturer_id)) %>%
+  mutate(Current_pincode_ID =  as.factor(Current_pincode_ID)) %>%
+  mutate(Employee_code_ID =  as.factor(Employee_code_ID)) %>%
+  mutate(MobileNo_Avl_Flag =  as.factor(MobileNo_Avl_Flag)) %>%
+  mutate(Aadhar_flag =  as.factor(Aadhar_flag)) %>%
+  mutate(PAN_flag =  as.factor(PAN_flag)) %>%
+  mutate(Driving_flag =  as.factor(Driving_flag)) %>%
+  mutate(Passport_flag =  as.factor(Passport_flag)) 
 ```
 
 Des modalités trop fragmentées sont difficilement interprétables par les métiers et n’apportent pas vraiment de plus-value métier. Un regroupement plus macro est souvent nécessaire.
 
+Pour pouvoir interpréter le regroupement on peut passer du tableau en effectifs au tableau en pourcentages ligne ou colonne. Pour cela, on peut utiliser les fonctions <span style="color: pink;">lprop</span> de l’extension questionr, qu’on applique à la donnée .
+
+Pour calculer les pourcentages ligne :
 ```{r credit5, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
 summary(as.factor(dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION))
 
@@ -126,6 +141,13 @@ dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION[dataWrangled$PERFORM_CNS.SCORE.DESCRI
     "No Bureau History Available")] <- "Not Scored"
 
 summary(as.factor(dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION))
+
+######
+tcd <- table(datainput$PERFORM_CNS.SCORE.DESCRIPTION, datainput$loan_default)
+lprop(tcd)
+tcd <- table(dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION, dataWrangled$loan_default)
+lprop(tcd)
+
 ```
 
 Pour les problèmes plus complexes, les un parsing plus fin est nécessaire pour des données <span style="color: blue;">`r head(datainput$AVERAGE.ACCT.AGE)` </span>, l’utilisation d’une expression régulière peut-être une solution. Ici nous voulons un time span et non une modalité (2yrs 3monts => 27 months). 
@@ -235,9 +257,10 @@ grid.arrange( bx, bxDef, dpDef ,ncol=2)
 
 ```
 
+
 #### Découpe de variables
 
-Calculate bin breaks for numeric variables with respect to their relationships with the outcome variable Churn
+Le but est de chercher le meilleur découpage numérique afin de trouver la meilleure relation entre les modalités et la variable de résultat.
 
 ```{r credit11, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center'}
 
@@ -246,33 +269,142 @@ bins = woebin(dataWrangled[, c('ltv',
                                    'asset_cost',
                                    'loan_default',
                                    'PRI.CURRENT.BALANCE',
+                                   'SEC.CURRENT.BALANCE',
+                                   'CHL',
+                                   'AAA',
                                    'PRI.SANCTIONED.AMOUNT',
                                    'PRI.DISBURSED.AMOUNT',
+                                   'SEC.DISBURSED.AMOUNT',
                                    'PERFORM_CNS.SCORE.DESCRIPTION',
+                                   'PRI.OVERDUE.ACCTS',
+                                   'NO.OF_INQUIRIES',
+                                   'DELINQUENT.ACCTS.IN.LAST.SIX.MONTHS',
                                    'PRIMARY.INSTAL.AMT',
                                    'BorrowerAge')], y = 'loan_default',  method="tree")
+
 
 ## Visualize bins
 woebin_plot(bins$ltv)$ltv
 woebin_plot(bins$disbursed_amount)$disbursed_amount
 woebin_plot(bins$PRI.CURRENT.BALANCE)$PRI.CURRENT.BALANCE
-woebin_plot(bins$PRI.SANCTIONED.AMOUNT)$PRI.SANCTIONED.AMOUNT
 woebin_plot(bins$PRI.DISBURSED.AMOUNT)$PRI.DISBURSED.AMOUNT
 woebin_plot(bins$PRIMARY.INSTAL.AMT)$PRIMARY.INSTAL.AMT
 woebin_plot(bins$BorrowerAge)$BorrowerAge
+woebin_plot(bins$AAA)$AAA
+woebin_plot(bins$BorrowerAge)$BorrowerAge
 woebin_plot(bins$PERFORM_CNS.SCORE.DESCRIPTION)$PERFORM_CNS.SCORE.DESCRIPTION
-
+woebin_plot(bins$PRI.OVERDUE.ACCTS)$PRI.OVERDUE.ACCTS
+woebin_plot(bins$DELINQUENT.ACCTS.IN.LAST.SIX.MONTHS)$DELINQUENT.ACCTS.IN.LAST.SIX.MONTHS
 
 
 dataWrangled = woebin_ply(dataWrangled, bins, to = 'bin')
 ```
 
-### Including Plots
+#### Les relations entre les variables
 
-You can also embed plots, for example:
+##### l'IV
+nous pouvons calculer l'IV. Classiquement, cela sert de méthode de classement variable et nous permet d'effectuer une sélection de caractéristiques, ce qui est moins exigeant en calcul que les autres méthodes.
+```{r credit21, echo=FALSE,  message=FALSE, warning=FALSE, fig.align='center'}
+df <- data.frame(c("< 0.02", "0.02 - 0.1", "0.1 - 0.3", "0.3 - 0.5", "> 0.5") , c("très faible", "faible", "moyenne", "forte","très forte") )
+colnames(df) =  c("IVr","Puissance de la relation")
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+# apply function to each variable combination
+kable( df)
+```
+```{r credit22, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center', out.width= "80%"}
+kable( iv(dataWrangled, y = 'loan_default') %>%
+  as_tibble() %>%
+  mutate( info_value = round(info_value, 3) ) %>%
+  arrange( desc(info_value) ), digits = 2)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+##### Les relations avec la variable explicative
+
+Pour ne retenir que les variables pertinantes une analyse de ralation entre les drivers de risque et la variable à expliquer est nécessaire. Le test du Khi2 par exemple permet de savoir si les variables entretiennent une relation, avec un degré de certitude plus ou moins grand.  Par contre, il ne renseigne pas sur la puissance de cette relation. 
+Pouvoir quantifier, lors d'une étude, les croisements de variables qui entretiennent les relations les plus intéressantes est appréciable, cela permet d’orienter ses choix et de valider ou d’invalider ses hypothèses de départ. Plus le v de Cramer s’approche de 1, plus l’intensité de la relation est forte.
+
+```{r credit12, echo=FALSE,  message=FALSE, warning=FALSE, fig.align='center'}
+df <- data.frame(c("<10", ">10 && <20", ">20 && <30", ">30") , c("très faible", "faible", "moyenne", "forte") )
+colnames(df) =  c("Valeurs du V de Cramer","Puissance de la relation")
+
+# apply function to each variable combination
+kable( df)
+```
+
+```{r credit13, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center'}
+# function to get chi square p value and Cramers V
+fCramerFunction = function(x,y) {
+  tbl = dataWrangled %>% slice(1:7000) %>% select(x,y) %>% table()
+  chisq_pval = round(chisq.test(tbl)$p.value, 2)
+  cramV = round(cramer.v(tbl), 2) 
+  data.frame(x, y, chisq_pval, cramV) }
+
+allCombination <- data.frame(X1 = c("loan_default"),
+                        X2 = names(dataWrangled))
+
+# apply function to each variable combination
+kable( map2_df(allCombination$X1, allCombination$X2, fCramerFunction)%>% arrange( desc(cramV )))
+```
+
+##### Les relations entre les variables
+
+Dans une régression, la corrélation des drivers est un problème qui survient lorsque certaines variables de prévision du modèle mesurent le même phénomène. Une corrélation entre les drivers prononcée s’avère problématique, car elle peut perturber la valeur des coefficients de régression et les rendre instables et difficiles à interpréter. Ce phénomène de surapprentissage n’est pas souhaitable. 
+
+```{r credit14, echo=TRUE,  message=TRUE, warning=FALSE, fig.align='center'}
+
+features <- c(
+"ltv_bin",
+"PERFORM_CNS.SCORE.DESCRIPTION_bin",
+"disbursed_amount_bin",
+"State_ID",
+"CHL_bin",
+"PRI.OVERDUE.ACCTS_bin",
+"NO.OF_INQUIRIES_bin",
+"DELINQUENT.ACCTS.IN.LAST.SIX.MONTHS_bin",
+"BorrowerAge_bin")
+
+
+# create unique combinations of column names
+# sorting will help getting a better plot (upper triangular)
+df_comb = data.frame(t(combn(sort(c(features,"loan_default")), 2)), stringsAsFactors = F)
+
+# apply function to each variable combination
+df_res = purrr::map2_df(df_comb$X1, df_comb$X2, fCramerFunction)
+
+# plot results
+df_res %>%
+  #ggplot(aes(x,y,fill=chisq_pval))+
+  ggplot(aes(x,y,fill=cramV))+
+  geom_tile()+
+  geom_text(aes(x,y,label=cramV))+
+  scale_fill_gradient(low="red", high="yellow")+
+  theme_classic()+ theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+
+```
+#### La regression logistique
+
+```{r credit15, echo=TRUE,  message=TRUE, warning=FALSE, fig.align='center'}
+#creating indices
+trainIndex <- createDataPartition(dataWrangled$loan_default,p=0.75,list=FALSE)
+
+#splitting data into training/testing data using the trainIndex object
+training1_TRAIN <- dataWrangled[trainIndex,] #training data (75% of data)
+training1_TEST <- dataWrangled[-trainIndex,] #testing data (25% of data)
+
+
+var_simple_glm = reformulate(termlabels = features, 
+                             response = "loan_default")
+
+
+
+simple_logit_model = glm(var_simple_glm, data = training1_TRAIN , family = binomial(link = "logit"))
+
+
+
+training1_TEST$Score = predict(simple_logit_model, newdata = training1_TEST, type = "response")
+test_roc_simple = roc(training1_TEST$loan_default ~ training1_TEST$Score, plot = TRUE, print.auc = TRUE)
+
+summary(simple_logit_model) # display results
+```
+

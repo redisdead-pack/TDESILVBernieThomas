@@ -186,7 +186,6 @@ dataWrangled[, "wt2"] <- bin_data(dataWrangled$NbrYearRelation, bins=3, binType 
 
 
 ######################################################################
-## Calculate bin breaks for numeric variables with respect to their relationships with the outcome variable Churn
 library(scorecard)
 library(ggplot2)
 library(ggplotify)
@@ -214,7 +213,7 @@ woebin_plot(bins$BorrowerAge)$BorrowerAge
 woebin_plot(bins$PERFORM_CNS.SCORE.DESCRIPTION)$PERFORM_CNS.SCORE.DESCRIPTION
 
 ## Compare results with conditional probability density plot
-ggplotly(ggplot(dataWrangled, aes_string(dataWrangled$ltv_bin, fill = dataWrangled$loan_default)) + 
+ggplotly(ggplot(dataWrangled, aes_string(dataWrangled$ltv, fill = dataWrangled$loan_default)) + 
            geom_density(position='fill', alpha = 0.5) + 
            xlab('ltv') + labs(fill='loan_default') +
            theme(legend.text=element_text(size=10), 
@@ -231,16 +230,17 @@ dataWrangled = woebin_ply(dataWrangled, bins, to = 'bin')
 
 # function to get chi square p value and Cramers V
 fCramerFunction = function(x,y) {
-  #message(sprintf(" %s || %s", x, y))
+  message(sprintf(" %s || %s", x, y))
   tbl = dataWrangled %>% slice(1:7000) %>% select(x,y) %>% table()
   chisq_pval = round(chisq.test(tbl)$p.value, 2)
   cramV = round(cramer.v(tbl), 2) 
   data.frame(x, y, chisq_pval, cramV) }
 
-allCombin <- data.frame(X1 = c("loan_default"),
+allCombination <- data.frame(X1 = c("loan_default"),
                         X2 = names(dataWrangled))
+
 # apply function to each variable combination
-allCombin_res = map2_df(allCombin$X1, allCombin$X2, fCramerFunction)
+allCombin_res = map2_df(allCombination$X1, allCombination$X2, fCramerFunction)
 
 features <- c(#"supplier_id",
 "ltv_bin",
