@@ -2,7 +2,9 @@
 title: "Part1 Cours ESILV"
 author: "Thomas & Bernie"
 date: "17/09/2020"
-output: html_document
+output:
+  html_document:
+    css: style.css
 ---
 
 ```{r setup, include=FALSE}
@@ -13,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 # Les librairies utiles & les données
-### Introduction
+## Introduction
 Les institutions financières subissent des pertes importantes en raison du défaut de prêts automobiles. Cela a conduit à un resserrement de la souscription de crédits automobiles et à une augmentation des taux de rejet de crédits automobiles. La nécessité d'un meilleur modèle de notation du risque de crédit est par conséquent soulevé par la directions de l'institutions "SuperCar4Everyone". Cela justifie une étude pour estimer les drivers ou variables prédictrices du défaut de crédit automobile. 
 
 "SuperCar4Everyone" vous a donc embauché pour prédire avec précision la probabilité de défaut de l'emprunteur sur un prêt de véhicule dans le premier EMI (Equated Monthly Versements). l'EMI correspond à est un montant de paiement fixe effectué par un emprunteur à un prêteur à une date précise chaque mois civil. Des versements mensuels égaux sont utilisés pour rembourser les intérêts et le principal chaque mois, de sorte que sur un certain nombre d'années, le prêt soit remboursé intégralement. 
@@ -27,7 +29,7 @@ Les informations suivantes concernant le prêt et le prêteur sont fournies:
 Cela garantira que les clients capables de rembourser ne seront pas rejetés et que des critères discriminants pourront être identifiés et pourront être utilisés par "SuperCar4Everyone" pour minimiser les taux de défaut.
 
 
-### Les librairies
+## Les librairies
 ```{r credit, echo=TRUE,  message=FALSE, warning=FALSE}
 # load useful libraries
 library(tidyverse)
@@ -46,9 +48,10 @@ library(pROC)
 library(purrr)
 ```
 
-### Les Datas
 
-L’entreprise « SuperCar4Everyone » malgré leur système de données logé dans le cloud, l’entreprise nous met à disposition la forme la plus évoluée de stockage de données. Ce CSV contient un certain nombre de d’informations et un expert métier est là pour répondre à vos questions.
+## Les Datas
+
+L’entreprise « SuperCar4Everyone » malgré leur système de données logé dans le cloud nous met à disposition la forme la plus évoluée de stockage de données. Ce CSV contient un certain nombre d’informations et un expert métier est là pour répondre à vos questions.
 
 Contenu du fichier CSV:
 
@@ -63,8 +66,10 @@ kable(datainput)
 ```
 
 
+
 # Le snorkeling
-### Chargement des fichiers et premières impressions
+
+## Chargement des fichiers et premières impressions
 
 ```{r credit2, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
@@ -90,13 +95,15 @@ kable(head(datainput%>%
           CREDIT.HISTORY.LENGTH)))
 ```
 
-### Echange avec les métiers
+## Echange avec les métiers
 les étudiant doivent maintenant lire les descriptions des variables présentes, regarder les distributions et les premières valeurs et faire poser des questions aux métiers pour une près sélection des variables et une étape de wrangling.
 
 
 
+
 # Deep dive
-### Wrangling et mise en forme
+
+## Wrangling et mise en forme
 Dans un premier temps le re-typage des variables est nécessaire, certains ID peuvent être interprétés comme des valeurs numériques alors qu’elles sont des modalités, le principe est le même pour les booléens ou les modalités.
 
 ```{r credit4, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
@@ -186,7 +193,7 @@ Nous pouvons ainsi regarder les données travaillées
 
  - pour les variables numériques:
 
-```{r credit8, echo=TRUE,  message=FALSE, warning=FALSE, fig.fullwidth=TRUE,  fig.height= 15}
+```{r credit8, echo=TRUE,  message=FALSE, warning=FALSE, fig.fullwidth=TRUE,  fig.height= 15, fig.align='center'}
 dataWrangled%>%
   select_if(is.numeric) %>%
   gather(cols, value) %>%
@@ -195,21 +202,21 @@ dataWrangled%>%
 
  - pour les variables modales:
 
-```{r credit9, echo=TRUE,  message=FALSE, warning=FALSE}
+```{r credit9, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center'}
 dataWrangled%>%
   select_if(is.factor) %>%
   gather(cols, value) %>%
   ggplot(aes(x = value)) + geom_histogram(stat = "count") + facet_wrap( .~cols, scales = "free"  ,ncol = 3)
 ```
 
-### Discussion avec le business
+## Discussion avec le business
 
 Les modélisateurs doivent revenir avec des questions pour le business et exclure les premières variables
 
 
-### Selection des drivers pour le modèle
+# Selection des drivers pour le modèle
 
-#### Analyses univariées
+## Analyses univariées
 
 Nous allons étudier une variable souvent révélatrice de la qualité de la saisie de la donnée. L’âge d’un Obligor nous permet souvent de détecter des valeurs fausses ou aberrantes. 
 
@@ -258,7 +265,7 @@ grid.arrange( bx, bxDef, dpDef ,ncol=2)
 ```
 
 
-#### Découpe de variables
+## Découpe de variables
 
 Le but est de chercher le meilleur découpage numérique afin de trouver la meilleure relation entre les modalités et la variable de résultat.
 
@@ -300,9 +307,9 @@ woebin_plot(bins$DELINQUENT.ACCTS.IN.LAST.SIX.MONTHS)$DELINQUENT.ACCTS.IN.LAST.S
 dataWrangled = woebin_ply(dataWrangled, bins, to = 'bin')
 ```
 
-#### Les relations entre les variables
+## Les relations entre les variables
 
-##### l'IV
+### l'IV
 nous pouvons calculer l'IV. Classiquement, cela sert de méthode de classement variable et nous permet d'effectuer une sélection de caractéristiques, ce qui est moins exigeant en calcul que les autres méthodes.
 ```{r credit21, echo=FALSE,  message=FALSE, warning=FALSE, fig.align='center'}
 df <- data.frame(c("< 0.02", "0.02 - 0.1", "0.1 - 0.3", "0.3 - 0.5", "> 0.5") , c("très faible", "faible", "moyenne", "forte","très forte") )
@@ -318,7 +325,7 @@ kable( iv(dataWrangled, y = 'loan_default') %>%
   arrange( desc(info_value) ), digits = 2)
 ```
 
-##### Les relations avec la variable explicative
+### Les relations avec la variable explicative
 
 Pour ne retenir que les variables pertinantes une analyse de ralation entre les drivers de risque et la variable à expliquer est nécessaire. Le test du Khi2 par exemple permet de savoir si les variables entretiennent une relation, avec un degré de certitude plus ou moins grand.  Par contre, il ne renseigne pas sur la puissance de cette relation. 
 Pouvoir quantifier, lors d'une étude, les croisements de variables qui entretiennent les relations les plus intéressantes est appréciable, cela permet d’orienter ses choix et de valider ou d’invalider ses hypothèses de départ. Plus le v de Cramer s’approche de 1, plus l’intensité de la relation est forte.
@@ -346,7 +353,7 @@ allCombination <- data.frame(X1 = c("loan_default"),
 kable( map2_df(allCombination$X1, allCombination$X2, fCramerFunction)%>% arrange( desc(cramV )))
 ```
 
-##### Les relations entre les variables
+### Les relations entre les variables
 
 Dans une régression, la corrélation des drivers est un problème qui survient lorsque certaines variables de prévision du modèle mesurent le même phénomène. Une corrélation entre les drivers prononcée s’avère problématique, car elle peut perturber la valeur des coefficients de régression et les rendre instables et difficiles à interpréter. Ce phénomène de surapprentissage n’est pas souhaitable. 
 
@@ -382,7 +389,9 @@ df_res %>%
 
 
 ```
-#### La regression logistique
+
+
+# La regression logistique
 
 ```{r credit15, echo=TRUE,  message=TRUE, warning=FALSE, fig.align='center'}
 #creating indices
