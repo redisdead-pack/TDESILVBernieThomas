@@ -5,6 +5,7 @@ date: "17/09/2020"
 output:
   html_document:
     css: style.css
+    number_sections: true
 ---
 
 ```{r setup, include=FALSE}
@@ -69,6 +70,8 @@ kable(datainput)
 
 # Le snorkeling
 
+L'idée est de regarder les données de haut, une pratique ayant lieu en surface, moins technique, et beaucoup moins exigeante qu’une analyse univariée/bivariée. Elle va nous permettre de prendre connaissance de la donnée en regardant le type, les valeurs manquantes, la distribution des drivers possibles de notre modèle.
+
 ## Chargement des fichiers et premières impressions
 
 ```{r credit2, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
@@ -96,7 +99,7 @@ kable(head(datainput%>%
 ```
 
 ## Echange avec les métiers
-les étudiant doivent maintenant lire les descriptions des variables présentes, regarder les distributions et les premières valeurs et faire poser des questions aux métiers pour une près sélection des variables et une étape de wrangling.
+les étudiant doivent maintenant lire les descriptions des variables présentes, regarder les distributions et les premières valeurs et faire poser des questions aux métiers pour une près sélection des variables et une étape de wrangling. Cette étape de discussion avec les métiers est primordiale car elle est un moyen rapide de préhension de l’environnement de crédit et des us et coutumes locaux
 
 
 
