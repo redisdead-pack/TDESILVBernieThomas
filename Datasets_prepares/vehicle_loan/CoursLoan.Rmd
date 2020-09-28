@@ -1,5 +1,5 @@
 ---
-title: "Part1 Cours ESILV"
+title: "TD4 ML - Credit scoring"
 author: "Thomas & Bernie"
 date: "17/09/2020"
 output:
@@ -49,10 +49,9 @@ library(pROC)
 library(purrr)
 ```
 
-
 ## Les Datas
 
-L’entreprise « SuperCar4Everyone » malgré leur système de données logé dans le cloud nous met à disposition la forme la plus évoluée de stockage de données. Ce CSV contient un certain nombre d’informations et un expert métier est là pour répondre à vos questions.
+L’entreprise « SuperCar4Everyone » malgré leur système de données logé dans le cloud, nous met à disposition la forme la plus évoluée de stockage de données : le CSV. Ce fichier contient un certain nombre de d’informations et un expert métier est là pour répondre à vos questions.
 
 Contenu du fichier CSV:
 
@@ -67,12 +66,8 @@ kable(datainput)
 ```
 
 
-
 # Le snorkeling
-
-L'idée est de regarder les données de haut, une pratique ayant lieu en surface, moins technique, et beaucoup moins exigeante qu’une analyse univariée/bivariée. Elle va nous permettre de prendre connaissance de la donnée en regardant le type, les valeurs manquantes, la distribution des drivers possibles de notre modèle.
-
-## Chargement des fichiers et premières impressions
+### Chargement des fichiers et premières impressions
 
 ```{r credit2, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
@@ -80,9 +75,9 @@ datainput = read_delim('./data/trainRed.csv', col_names = TRUE, delim = ',')
 skim(datainput)
 ```
 
-La préhension de la data via la fonction ‘skim’ est déjà un bon début car il nous donne l’idée de la population des contrats à étudier `r nrow(datainput)` et de l'interprétation des variables en 'character' ou 'numeric'. Elle nous indique les valeurs manquantes et le poid de ces 'n_missing'.
+L' appréhension de la data via la fonction ‘skim’ est déjà un bon début car il nous donne l’idée de la population des contrats à étudier `r nrow(datainput)` et de l'interprétation des variables en 'character' ou 'numeric'. Elle nous indique les valeurs manquantes et le poid de ces 'n_missing'.
 
-Le format de certaines variables nécessite d’être retravaillé, une rapide vue des variable permet de se faire une première idée de l’état de l’art. 
+Le format de certaines variables nécessite d’être retravaillé, une rapide vue des variable permet de se faire une première idée :
 
 ```{r credit3, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
 kable(head(datainput%>%
@@ -98,16 +93,20 @@ kable(head(datainput%>%
           CREDIT.HISTORY.LENGTH)))
 ```
 
-## Echange avec les métiers
-les étudiant doivent maintenant lire les descriptions des variables présentes, regarder les distributions et les premières valeurs et faire poser des questions aux métiers pour une près sélection des variables et une étape de wrangling. Cette étape de discussion avec les métiers est primordiale car elle est un moyen rapide de préhension de l’environnement de crédit et des us et coutumes locaux
+### Echange avec les métiers
 
+Une première séléction des variables peut se faire via un échange avec les banquiers, après tout, ils connaissent mieux leur métier que nous! Il nous orientent sur les données qu'ils suivent pour mesurer le niveau de risque d'un client. Il sera utile de retenir a minima ces données et de les enrichir de variables que nous identifierons statistiquement.
 
+Les étudiant doivent maintenant lire les descriptions des variables présentes, regarder les distributions et les premières valeurs et poser des questions aux métiers pour une près sélection des variables et une étape de wrangling.
 
 
 # Deep dive
 
 ## Wrangling et mise en forme
-Dans un premier temps le re-typage des variables est nécessaire, certains ID peuvent être interprétés comme des valeurs numériques alors qu’elles sont des modalités, le principe est le même pour les booléens ou les modalités.
+
+Garbage in, garbage out : la préparation de la donnée est une étape prépondérante. Une mauvaise ou insuffisante préparation de ses données peut tout simplement annuler toute la pertinence de votre modèle, aussi sophistiqué soit-il. Classiquement, la préparation des données couvre 80% du temps passé pour une modélisation.
+
+Dans un premier temps le re-typage des variables est nécessaire, certains ID peuvent être interprétés comme des valeurs numériques alors qu’ils sont des modalités, le principe est le même pour les booléens.
 
 ```{r credit4, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
 dataWrangled <- datainput  %>%
@@ -127,9 +126,9 @@ dataWrangled <- datainput  %>%
   mutate(Passport_flag =  as.factor(Passport_flag)) 
 ```
 
-Des modalités trop fragmentées sont difficilement interprétables par les métiers et n’apportent pas vraiment de plus-value métier. Un regroupement plus macro est souvent nécessaire.
+Des modalités trop fragmentées sont difficilement interprétables par les métiers et n’apportent pas vraiment de plus-value. Un regroupement plus macro est souvent nécessaire.
 
-Pour pouvoir interpréter le regroupement on peut passer du tableau en effectifs au tableau en pourcentages ligne ou colonne. Pour cela, on peut utiliser les fonctions <span style="color: pink;">lprop</span> de l’extension questionr, qu’on applique à la donnée .
+Pour pouvoir interpréter le regroupement on peut passer du tableau en effectifs au tableau en pourcentages ligne ou colonne. Pour cela, on peut utiliser les fonctions <span style="color: pink;">lprop</span> du package questionr.
 
 Pour calculer les pourcentages ligne :
 ```{r credit5, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
@@ -152,7 +151,6 @@ dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION[dataWrangled$PERFORM_CNS.SCORE.DESCRI
 
 summary(as.factor(dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION))
 
-######
 tcd <- table(datainput$PERFORM_CNS.SCORE.DESCRIPTION, datainput$loan_default)
 lprop(tcd)
 tcd <- table(dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION, dataWrangled$loan_default)
@@ -160,7 +158,7 @@ lprop(tcd)
 
 ```
 
-Pour les problèmes plus complexes, les un parsing plus fin est nécessaire pour des données <span style="color: blue;">`r head(datainput$AVERAGE.ACCT.AGE)` </span>, l’utilisation d’une expression régulière peut-être une solution. Ici nous voulons un time span et non une modalité (2yrs 3monts => 27 months). 
+Pour les problèmes plus complexes, un parsing plus fin est parfois nécessaire pour des données <span style="color: blue;">`r head(datainput$AVERAGE.ACCT.AGE)` </span>, l’utilisation d’une expression régulière peut-être une solution. Ici nous voulons un time span et non une modalité (2yrs 3monts => 27 months). 
 
 ```{r credit6, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
 dataWrangled <- dataWrangled %>%
@@ -203,7 +201,7 @@ dataWrangled%>%
   ggplot(aes(x = value)) + geom_histogram() + facet_wrap( .~cols, scales = "free"  ,ncol = 3)
 ```
 
- - pour les variables modales:
+ - pour les variables catégorielles:
 
 ```{r credit9, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center'}
 dataWrangled%>%
@@ -217,11 +215,11 @@ dataWrangled%>%
 Les modélisateurs doivent revenir avec des questions pour le business et exclure les premières variables
 
 
-# Selection des drivers pour le modèle
+## Selection des drivers pour le modèle
 
-## Analyses univariées
+### Analyses univariées
 
-Nous allons étudier une variable souvent révélatrice de la qualité de la saisie de la donnée. L’âge d’un Obligor nous permet souvent de détecter des valeurs fausses ou aberrantes. 
+Nous allons étudier une variable souvent révélatrice de la qualité de la saisie de la donnée. L’âge d’un client nous permet de détecter des valeurs fausses ou aberrantes. 
 
 ```{r credit10, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center'}
 summary(dataWrangled$BorrowerAge)
@@ -268,30 +266,23 @@ grid.arrange( bx, bxDef, dpDef ,ncol=2)
 ```
 
 
-## Découpe de variables
+### Discrétisation des variables
 
-Le but est de chercher le meilleur découpage numérique afin de trouver la meilleure relation entre les modalités et la variable de résultat.
+La discrétisation des variables est une pratique courante pour le credit scoring. Elle permet de transformer des variables numériques (âge, ancienneté du client, LTV) en variables catégorielle.
+
+Il est à noter que la discrétisation d'une variable numérique constitue une perte d'information et n'est pas un pré-requis à la regression logistique. Néanmoins, la création de modalités permet souvent une lecture plus simple et une catégorisation des clients.
+
+En discrétisant, nous cherchons le meilleur découpage de la variable à discrétiser vis à vis de notre variable cible. Plusieurs méthodes existent (khi2, WOE, arbres, etc.) mais le principe est toujours le même : commencer par un découpage fin et regrouper les modalités ayant le même taux de défaut.
+
+Nous allons utiliser la fonction woebin du package scorecard. Il découpe sur la base de la mesure WOE ou Weigth of Evidence. Le package fournit également une fonction woebin_plot qui propose des graphiques lisibles des découpages.
 
 ```{r credit11, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center'}
 
-bins = woebin(dataWrangled[, c('ltv', 
-                                   'disbursed_amount',
-                                   'asset_cost',
-                                   'loan_default',
-                                   'PRI.CURRENT.BALANCE',
-                                   'SEC.CURRENT.BALANCE',
-                                   'CHL',
-                                   'AAA',
-                                   'PRI.SANCTIONED.AMOUNT',
-                                   'PRI.DISBURSED.AMOUNT',
-                                   'SEC.DISBURSED.AMOUNT',
-                                   'PERFORM_CNS.SCORE.DESCRIPTION',
-                                   'PRI.OVERDUE.ACCTS',
-                                   'NO.OF_INQUIRIES',
-                                   'DELINQUENT.ACCTS.IN.LAST.SIX.MONTHS',
-                                   'PRIMARY.INSTAL.AMT',
-                                   'BorrowerAge')], y = 'loan_default',  method="tree")
+#liste des variables a discretiser : toutes sauf les id, la cible, et les variables non transformees
+to_bin <- names(dataWrangled)
+to_bin <- to_bin[!to_bin %in% c("loan_default","UniqueID","Current_pincode_ID", "Date.of.Birth", "DisbursalDate", "Employee_code_ID", "AVERAGE.ACCT.AGE", "CREDIT.HISTORY.LENGTH")]
 
+bins = woebin(dataWrangled[, c(to_bin,'loan_default')], y = 'loan_default',check_cate_num = F)
 
 ## Visualize bins
 woebin_plot(bins$ltv)$ltv
@@ -308,75 +299,83 @@ woebin_plot(bins$DELINQUENT.ACCTS.IN.LAST.SIX.MONTHS)$DELINQUENT.ACCTS.IN.LAST.S
 
 
 dataWrangled = woebin_ply(dataWrangled, bins, to = 'bin')
+
+## Remarque : l'algorithme regroupe parfois toutes les valeurs en une seule modalite
+# Ce qui veut dire que la variable n'est pas discriminante
+# On elimine ces variables
+
+#variables discretisees 
+binned <- paste0(to_bin,"_bin")
+binned <- binned[binned %in% names(dataWrangled)]
+nbval <-NULL
+for (var in binned) {
+  dt <- as.data.frame(dataWrangled)
+  nbmod <- length(unique(dt[,var]))
+  nbval <- rbind(nbval,cbind(var,nbmod))
+}
+to_drop <- nbval[nbval[,2] == 1,1]
+
+dataWrangled <- select(dataWrangled,-c(to_drop))
 ```
 
-## Les relations entre les variables
+### Pouvoir discriminant des variables
 
-### l'IV
-nous pouvons calculer l'IV. Classiquement, cela sert de méthode de classement variable et nous permet d'effectuer une sélection de caractéristiques, ce qui est moins exigeant en calcul que les autres méthodes.
+Nous pouvons calculer l'information value (IV) pour chaque variable. Cette mesure classique dans le credit scoring permet de mesurer le pouvoir discriminant de chaque variable vis à vis du défaut. Plus l'IV est grand, plus le lien est fort.
+
 ```{r credit21, echo=FALSE,  message=FALSE, warning=FALSE, fig.align='center'}
 df <- data.frame(c("< 0.02", "0.02 - 0.1", "0.1 - 0.3", "0.3 - 0.5", "> 0.5") , c("très faible", "faible", "moyenne", "forte","très forte") )
-colnames(df) =  c("IVr","Puissance de la relation")
+colnames(df) =  c("IV","Puissance de la relation")
 
 # apply function to each variable combination
 kable( df)
 ```
 ```{r credit22, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center', out.width= "80%"}
-kable( iv(dataWrangled, y = 'loan_default') %>%
+binned <- binned[!binned %in% to_drop]
+dataiv <- as.data.frame(dataWrangled)
+dataiv <- dataiv[,c("loan_default",binned)]
+
+kable( iv(dataiv, y = 'loan_default') %>%
   as_tibble() %>%
   mutate( info_value = round(info_value, 3) ) %>%
   arrange( desc(info_value) ), digits = 2)
 ```
 
-### Les relations avec la variable explicative
+### Corrélations intra modèle
 
-Pour ne retenir que les variables pertinantes une analyse de ralation entre les drivers de risque et la variable à expliquer est nécessaire. Le test du Khi2 par exemple permet de savoir si les variables entretiennent une relation, avec un degré de certitude plus ou moins grand.  Par contre, il ne renseigne pas sur la puissance de cette relation. 
-Pouvoir quantifier, lors d'une étude, les croisements de variables qui entretiennent les relations les plus intéressantes est appréciable, cela permet d’orienter ses choix et de valider ou d’invalider ses hypothèses de départ. Plus le v de Cramer s’approche de 1, plus l’intensité de la relation est forte.
+L'utilisation de variables explicatives corrélées entre elles crée de nombreux biais. Instinctivement, on peut se dire qu'une redondance d'information n'est pas utile dans un modèle (si l'âge du client est discriminant, il n'est pas nécessaire de l'utiliser deux fois, en année et en mois par exemple).
+
+
+De plus, dans une régression, la corrélation des drivers est un problème qui survient lorsque certaines variables de prévision du modèle mesurent le même phénomène. Une corrélation entre les drivers prononcée s’avère problématique, car elle peut perturber la valeur des coefficients de régression et les rendre instables et difficiles à interpréter. Ce phénomène de surapprentissage n’est pas souhaitable.
+
+Pour ne retenir que les variables pertinentes, une analyse de corrélation est donc nécessaire. L'idée générale est de retenir les variables les plus discriminantes et les moins corrélées entre elles. 
+
+Le V de Cramer peut être utilisé en ce sens. Dérivée du khi2, cette mesure normalisée permet de quantifier une "corrélation" entre variables catégorielles :
 
 ```{r credit12, echo=FALSE,  message=FALSE, warning=FALSE, fig.align='center'}
 df <- data.frame(c("<10", ">10 && <20", ">20 && <30", ">30") , c("très faible", "faible", "moyenne", "forte") )
-colnames(df) =  c("Valeurs du V de Cramer","Puissance de la relation")
+colnames(df) =  c("Valeurs du V de Cramer (en pct)","Puissance de la relation")
 
 # apply function to each variable combination
 kable( df)
 ```
 
-```{r credit13, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center'}
-# function to get chi square p value and Cramers V
+
+Le calcul d'une matrice entre les variables d'intérêt permet souvent de séléctionner le meilleur set de variable. Si deux variables sont corrélées entre elles, nous pouvons par exemple ne sélectionner que celle qui est la plus liée avec la variable cible. Ci-dessous un exemple pour quelques variables :
+ 
+
+```{r credit14, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center'}
+
+## Fonction de calcul d'un v de cramer
 fCramerFunction = function(x,y) {
-  tbl = dataWrangled %>% slice(1:7000) %>% select(x,y) %>% table()
+  #message(sprintf(" %s || %s", x, y))
+  tbl = dataWrangled %>% select(x,y) %>% table()
   chisq_pval = round(chisq.test(tbl)$p.value, 2)
   cramV = round(cramer.v(tbl), 2) 
   data.frame(x, y, chisq_pval, cramV) }
 
-allCombination <- data.frame(X1 = c("loan_default"),
-                        X2 = names(dataWrangled))
-
-# apply function to each variable combination
-kable( map2_df(allCombination$X1, allCombination$X2, fCramerFunction)%>% arrange( desc(cramV )))
-```
-
-### Les relations entre les variables
-
-Dans une régression, la corrélation des drivers est un problème qui survient lorsque certaines variables de prévision du modèle mesurent le même phénomène. Une corrélation entre les drivers prononcée s’avère problématique, car elle peut perturber la valeur des coefficients de régression et les rendre instables et difficiles à interpréter. Ce phénomène de surapprentissage n’est pas souhaitable. 
-
-```{r credit14, echo=TRUE,  message=TRUE, warning=FALSE, fig.align='center'}
-
-features <- c(
-"ltv_bin",
-"PERFORM_CNS.SCORE.DESCRIPTION_bin",
-"disbursed_amount_bin",
-"State_ID",
-"CHL_bin",
-"PRI.OVERDUE.ACCTS_bin",
-"NO.OF_INQUIRIES_bin",
-"DELINQUENT.ACCTS.IN.LAST.SIX.MONTHS_bin",
-"BorrowerAge_bin")
-
-
 # create unique combinations of column names
 # sorting will help getting a better plot (upper triangular)
-df_comb = data.frame(t(combn(sort(c(features,"loan_default")), 2)), stringsAsFactors = F)
+df_comb = data.frame(t(combn(sort(c(binned,"loan_default")), 2)), stringsAsFactors = F)
 
 # apply function to each variable combination
 df_res = purrr::map2_df(df_comb$X1, df_comb$X2, fCramerFunction)
@@ -387,16 +386,97 @@ df_res %>%
   ggplot(aes(x,y,fill=cramV))+
   geom_tile()+
   geom_text(aes(x,y,label=cramV))+
-  scale_fill_gradient(low="red", high="yellow")+
+  scale_fill_gradient(low="white", high="red")+
   theme_classic()+ theme(axis.text.x = element_text(angle = 60, hjust = 1))
 
 
 ```
 
+La matrice n'est pas très lisibile car elle embarque toutes les variables. C'est ici que nous devons faire une selection.
 
-# La regression logistique
+Methodologie proposee : on identifie les couples de variable correllees a plus de 30%. Au sein de chaque couple, on ne garde que celle qui est la plus liee au defaut.
 
-```{r credit15, echo=TRUE,  message=TRUE, warning=FALSE, fig.align='center'}
+```{r credit141, echo=TRUE,  message=TRUE, warning=FALSE, fig.align='center'}
+
+## Selection des couples avec un V de Cramer des plus de 20%
+couples_correl <- df_res[df_res$cramV > 0.3,]
+
+## Dans les couples identifies : le defaut est intégré. On enlève les lignes contenant le defaut
+couples_correl <- couples_correl[couples_correl$x != "loan_default" & couples_correl$y != "loan_default",]
+
+#On isole les correlations avec le defaut
+correl_def <- df_res[df_res$y == "loan_default" | df_res$x == "loan_default",]
+correl_def$variable <- correl_def$x 
+correl_def$variable[correl_def$y != "loan_default"] <- correl_def$y[correl_def$y != "loan_default"]
+correl_def <- correl_def[,c("cramV","variable")]
+names(correl_def) <- c("correl_def","variable")
+
+#Table de selection : couples correlés et lien avec le defaut de chaque membre du couple
+couples_correl <- merge.data.frame(couples_correl,correl_def,by.x = "x",by.y = "variable",all.x = T)
+couples_correl <- merge.data.frame(couples_correl,correl_def,by.x = "y",by.y = "variable",all.x = T)
+
+## Selection parmi les couples
+couples_correl$selection <- "x"
+couples_correl$selection[couples_correl$correl_def.y > couples_correl$correl_def.x] <- "y"
+
+kable(couples_correl)
+
+#Liste des variables a eliminer du modele
+dropx <- unique(couples_correl$x[couples_correl$selection=="y"])
+dropy <-  unique(couples_correl$y[couples_correl$selection=="x"])
+dropall <- unique(c(dropx,dropy))
+
+#on enregistre les variables a maintenir
+features <- binned[!binned %in% dropall]
+
+```
+
+Après cette séléction, nous pouvons afficher une matrice de correlation allégée : 
+
+```{r credit142, echo=TRUE,  message=TRUE, warning=FALSE, fig.align='center'}
+# plot results
+df_res_new <- df_res[df_res$x %in% c("loan_default",features) & df_res$y %in% c("loan_default",features),]
+
+df_res_new %>% 
+  #ggplot(aes(x,y,fill=chisq_pval))+
+  ggplot(aes(x,y,fill=cramV))+
+  geom_tile()+
+  geom_text(aes(x,y,label=cramV))+
+  scale_fill_gradient(low="white", high="red")+
+  theme_classic()+ theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+```
+
+### Dernières mises en forme
+
+Des variables d'identifiant ont été séléctionnées : branch_id_bin, supplier_id_bin, manufacturer_id_bin, State_ID_bin.
+Il s'agit de codes permettant d'identifier respectivement le réseau de vente, la concession, la marque du véhicule, et l'état (au sens géographique) de la vente.
+
+Nous n'avons pas plus d'information sur ces codes. Pour une question d'affichage, nous allons donc fixer leurs modalités à des valeurs génériques (group1, group2, etc.).
+
+
+```{r credit143, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center'}
+dataWrangled$branch_id_bin <- as.factor(dataWrangled$branch_id_bin)
+levels(dataWrangled$branch_id_bin) <- paste0("branch_group",1:length(levels(dataWrangled$branch_id_bin)))
+dataWrangled$branch_id_bin <- factor(dataWrangled$branch_id_bin)
+
+dataWrangled$supplier_id_bin <- as.factor(dataWrangled$supplier_id_bin)
+levels(dataWrangled$supplier_id_bin) <- paste0("supplier_group",1:length(levels(dataWrangled$supplier_id_bin)))
+dataWrangled$supplier_id_bin <- factor(dataWrangled$supplier_id_bin)
+
+dataWrangled$manufacturer_id_bin <- as.factor(dataWrangled$manufacturer_id_bin)
+levels(dataWrangled$manufacturer_id_bin) <- paste0("manuf_group",1:length(levels(dataWrangled$manufacturer_id_bin)))
+dataWrangled$manufacturer_id_bin <- factor(dataWrangled$manufacturer_id_bin)
+
+dataWrangled$State_ID_bin <- as.factor(dataWrangled$State_ID_bin)
+levels(dataWrangled$State_ID_bin) <- paste0("state_group",1:length(levels(dataWrangled$State_ID_bin)))
+dataWrangled$State_ID_bin <- factor(dataWrangled$State_ID_bin)
+
+```
+
+## La regression logistique
+
+```{r credit15, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center'}
 #creating indices
 trainIndex <- createDataPartition(dataWrangled$loan_default,p=0.75,list=FALSE)
 
@@ -420,3 +500,283 @@ test_roc_simple = roc(training1_TEST$loan_default ~ training1_TEST$Score, plot =
 summary(simple_logit_model) # display results
 ```
 
+Remarque : des coefficients de la regression logistique ne sont pas significativement non nuls. Dans cette situation, il faudrait soit exclure la variable, soit revoir sa discrétisation jusqu'à avoir des coefficients tous significatifs
+
+Graphiquement, on peut observer la distribution des scores selon le fait que le client soit tombé en défaut ou non : 
+
+```{r credit151, echo=TRUE,  message=TRUE, warning=FALSE, fig.align='center'}
+
+ggplot(training1_TEST, aes(x=Score, color=loan_default)) +
+  geom_density()
+
+```
+Comme attendu, les scores des clients tombant en défaut sont distribués dans les valeurs plus élevées.
+
+
+
+# Quantification de la probabilité de défaut
+
+N.B : cette partie est indépendante de la partie précédente (construction d'un score).
+
+## Données et contexte
+
+Supposons qu'un score a été construit et qu'en sortie, quatre classes de risque sont proposées.
+
+La quantification consiste à attribuer une probabilité de défaut à chaque classe, si tant est que celles-ci soient correctement définies ! Dans cette partie, nous allons voir les faiblesses potentielles d'une échelle et calibrer une probabilité de défaut pour chaque classe.
+
+Le jeu de données (indépendant de la partie scoring) se présente sous la forme de quatres séries temporelles de taux de défaut en pourcentage et qautre séries d'effectif.
+
+```{r quant1, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+dataquant = read.csv2('./data/data_quantification.csv')
+skim(dataquant)
+```
+
+## Tracé des séries temporelles
+
+Dans un premier temps, il est toujours utile d'observer graphiquement les séries de taux défaut. On identifie ainsi les potentiels problèmes :
+
+- D'hétérogénéité : les classes ont été mal définies car ne traduisent pas une hiérarchie du risque 
+- D'homogénéité : une volatilité forte d'une série signfie que les clients/contrats de cette classe ont des taux de défaut instables
+- D'estimation : ne pas perdre de vue qu'une simple moyenne arithmétique + des marges de conservatismes constituerons la probabilité de défaut. Il faut donc identifier tout élément pouvant biaiser la valeur d'une moyenne.
+
+D'ailleurs, quel est le danger lorsqu'on résume une information à sa moyenne ?
+
+Le tracé des séries temporelles peut se faire avec le package ramCHarts, qui donne un rendu dynamique de vos graphiques :
+
+```{r quant2, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+
+  #COnversion des dates du jeu de données 
+  dataquant$Date <- as.Date(dataquant$Date,"%d/%m/%Y")
+  
+  #On reformate les donnees pour faciliter la syntaxe ggplot
+  dataplot <- dataquant %>%
+  dplyr::select(Date, ODR_CR1, ODR_CR2,ODR_CR3,ODR_CR4) %>%
+  gather(key = "variable", value = "value", -Date)
+  
+  #Tracé du graphique
+  ggplot(dataplot, aes(x = Date, y = value)) + 
+  geom_line(aes(color = variable),size=1) 
+  
+```
+
+Observons les séries une par une : 
+
+- Des classes meriteraient elles d'être regroupées ?
+- Qu'observez-vous sur la troisième classe en début 2014 ? Quel est le danger en prenant la moyenne des taux de défaut ? Comment couvrir ce risque ?
+- Quel comportement de la quatrième classe présuppose d'un traitement spécifique pour son calibrage ? Que proposeriez-vous ?
+
+## Remédiation des points identfiés
+
+### Mise en forme des donnees
+
+En amont, revoyons le format des données : nous allons les mettre en format "long" plutôt qu'en format "wide". C'est une transformation que nous avons déjà faite pour faciliter le tracé du graphique des séries temporelles.
+
+```{r quant3, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+  #Passage en format long des taux de defaut
+  dataquant2 <- dataquant %>%
+  dplyr::select(Date, ODR_CR1, ODR_CR2,ODR_CR3,ODR_CR4) %>%
+  gather(key = "Classe", value = "ODR", -Date)
+  
+  #Suppression du termes "ODR" dans la valeur des classes
+  dataquant2$Classe <- gsub("ODR_","",dataquant2$Classe)
+  
+  #Passage en format long des effectifs
+  eff <- dataquant %>%
+  dplyr::select(Date, NB_CR1, NB_CR2,NB_CR3,NB_CR4) %>%
+  gather(key = "Classe", value = "NB", -Date)
+  
+  #Suppression du termes "ODR" dans la valeur des classes
+  eff$Classe <- gsub("NB_","",eff$Classe)
+  
+  #Jointure des taux et des effectifs
+  dataquant2 <- merge.data.frame(dataquant2,eff,by = c("Date","Classe"))
+  
+  #Aperçu de la donnée reformatée
+  head(dataquant2)
+  
+```
+
+
+### Traitement des classes 1 et 2
+
+Nous pouvons dans un premier temps regrouper les classes 1 et 2
+
+```{r quant4, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+  #Transformation de la variable en factor : facilite le recodage d'une variable
+  dataquant2$Classe <- as.factor(dataquant2$Classe)
+
+  #Lorsqu'une variable est en factor, on peut afficher les modalités vérifiées 
+  levels(dataquant2$Classe)
+  
+  #il suffit alors de remplacer les levels (valeurs de modalite)
+  levels(dataquant2$Classe) <- c("CR1","CR1","CR2","CR3")
+  
+  #la fonction factor permet de "raffraichir" la variable avec les nouvelles modalites
+  dataquant2$Classe <- factor(dataquant2$Classe)
+  
+  #On recalcule les taux de defaut et les effectifs des classes post regroupement
+  dataquant2 <- dataquant2 %>%
+   group_by(Date,Classe) %>% 
+   mutate(ODR_NEW = weighted.mean(ODR, NB),NB_NEW=sum(NB))
+  dataquant2 <- unique(dataquant2[,c("Date", "Classe","ODR_NEW","NB_NEW")])
+  
+  names(dataquant2) <- c("Date", "Classe","ODR","NB")
+  
+  
+```
+
+### Traitement de la nouvelle classe 2
+
+Notons ensuite que la classe 3 montre un changement de régime début 2014. Pour assurer le conservatisme de la PD calibrée nous pouvons par exemple surpondérer les trois dernières années (de 2014 à 2016). Nous avons 32 dates en tout, dont 11 comprises dans la periode à surpondérer. Par exemple, nous pouvons doubler leur poids.
+
+```{r quant5, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+  
+  #Creation d'une variable poids. Celle ci vaut 1 partout sauf pour les années 2014, 2015, et 2015 de la classe 2    (anciennement classe 3)
+
+  dataquant2$poids <- 1  
+  dataquant2$annee <- year(dataquant2$Date)
+  dataquant2$poids[dataquant2$annee %in% c(2014,2015,2016) & dataquant2$Classe == "CR2"] <- 2
+
+```
+
+
+### Traitement de la tendance de la classe 3
+
+Pour la classe 3, nous devons prendre en compte la tendance de la série. Une méthode simple consisterait à ajuster une régression linéaire du taux de défaut en fonction du temps, en omettant les derniers points de la courbe pour identifier l'écart potentiel que génèrerai cette tendance.
+
+Retraçons la courbe de la classe 3 : 
+
+
+```{r quant6, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+  
+  ggplot(dataquant2[dataquant2$Classe == "CR3",], aes(x = Date, y = ODR)) + 
+  geom_line(aes(color = Classe),size=1) 
+  
+```
+
+Méthodologie proposée : nous allons ajuster une regression lineaire sur les 20 premiers points de la courbe. La marge de conservatisme correspondra à la moyenne des différences positives entre les taux de défaut prédits par cette regression sur les 12 derniers points et les valeurs observées.
+
+```{r quant7, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+  
+  #Selection des taux de defaut de la classe 3
+  datacr3 <- dataquant2[dataquant2$Classe == "CR3",]
+
+  #On trie le jeu de donnees selon les dates
+  datacr3 <- datacr3[order(datacr3$Date),]
+
+  #Creation d'un indice de temps
+  datacr3$temps <- 1:nrow(datacr3)
+  
+  #apercu des données
+  head(datacr3)
+  
+  #on selectionne les 20 premiers points et ajustement de la regression de ODR en fonction du temps
+  datareg <- datacr3[datacr3$temps <= 20,]
+  reglin <- lm(ODR~temps,data = datareg)
+  
+  summary(reglin)
+  #--> nous noterons que le coefficient de la variable temps est signficativement non nul, il y a donc bien une tendance
+  
+  #On apporte la prediction de la regression dans le jeu de donnees complet de cr3
+  datacr3$td_reg <- predict(reglin,newdata=datacr3)
+  
+  #Calcul de la difference entre valeur predite et observee sur les 12 dernies mois
+  diff <- datacr3$td_reg-datacr3$ODR
+  diff <- diff[21:length(diff)]
+  diff <- diff[diff > 0]
+  diff <- mean(diff)
+  
+  diff
+  
+  #-> nous retiendrons une marge de conservatisme de 0.3790629 au titre de la tendance pour la CR3
+```
+
+## Marge d'estimation 
+
+
+La marge d'estimation couvre l'erreur d'estimation liée à la moyenne des taux de défaut (dépend du nombre de points à disposition, au nombre de clients ayant permis d'estimer le taux de défaut et à la volatilité du taux de défaut). Classiquement, l'intervalle de confiance d'une moyenne historique de taux de défaut considérés indépendants entre deux dates s'écrit : 
+
+![](Capture_interval.PNG)
+
+Nous pouvons donc calculer l'erreur commise sur les moyennes de chaque classe : 
+
+```{r quant9, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+  
+   # Calcul des moyennes par classe
+   data_moy <- aggregate(ODR~Classe,data = dataquant2,FUN=mean)
+
+  #Import des effectifs
+  effectifs <- dataquant2[,c("Classe","NB")]
+  
+  #Calcul de Ntilde pour chaque classe
+  effectifs$inv <- 1/effectifs$NB
+  effectifs <- aggregate(inv~Classe,data = effectifs,FUN=sum)
+  
+   #Nous observons 32 points, donc K = 32
+  effectifs$n_tilde <- (32**2)/effectifs$inv
+  
+  #apport de N_tilde en face des moyennes
+  data_moy <- merge.data.frame(data_moy,effectifs,by="Classe")
+  
+  #Calcul de l'erreur par classe
+  data_moy$ODR <- data_moy$ODR/100
+  data_moy$erreur <- 1.96*sqrt(data_moy$ODR*(1-data_moy$ODR)/data_moy$n_tilde)
+  data_moy$erreur <- data_moy$erreur*100 
+```
+
+## Probabilités de défaut finales
+
+Après le calcul des moyennes et leurs ajustements / marges conservatisme, nous pouvons présenter une échelle finale avec ses probabilités de défaut : 
+
+
+```{r quant8, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+  
+  #Calcul de la moyenne pondérée des taux de defaut par classe 
+  #Prise en compte de l'ajustement de la classe 2 avec la surpondération
+  echelle <- dataquant2 %>%
+   group_by(Classe) %>% 
+   mutate(LRA = weighted.mean(ODR, poids))
+  echelle <- unique(echelle[,c("Classe","LRA")])
+  
+  #Ajout de la marge de tendance pour la CR3
+  echelle$marge_tendance <- 0
+  echelle$marge_tendance[echelle$Classe == "CR3"] <- diff
+  
+  #AJout des marges d'estimation par jointure
+  echelle <- merge.data.frame(echelle,data_moy,by="Classe",all.x = T)
+  
+  #Pd finales
+  echelle$PD <- echelle$LRA + echelle$marge_tendance + echelle$erreur
+  
+  
+```
+
+Après le calibrage d'une probabilité de défaut, il est toujours nécessaire de vérifier graphiquement que nos valeurs calibrées couvrent bien les taux observés : 
+
+
+```{r quant10, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+  
+ #Apport dans dataquant2 de la PD
+  pd <- echelle[,c("Classe","PD")]
+
+  dataplot <- merge.data.frame(dataquant2,pd,by="Classe",all.x = T)
+  
+  #Preparation du jeu de donnees pour ggplot
+  dataplot1 <- dataplot[,c("Classe", "Date","ODR")]
+  dataplot2<- dataplot[,c("Classe", "Date","PD")]
+  names(dataplot1) <- c("Variable","Date","value")
+  names(dataplot2) <- c("Variable","Date","value")
+  dataplot1$Variable <- paste(dataplot1$Variable,"Obs")
+  dataplot2$Variable <- paste(dataplot2$Variable,"PD")
+  dataplot <- rbind(dataplot1,dataplot2)
+  
+  #Tracé du graphique
+  ggplot(dataplot, aes(x = Date, y = value)) + 
+  geom_line(aes(color = Variable),size=1) 
+  
+```
+
+
+
+Vous noterez que les valeurs de PD des classes 2 et 3 manquent encore de prudence. Avant que la BCE ne vous tape sur les doigts, vous devriez y remédier !
