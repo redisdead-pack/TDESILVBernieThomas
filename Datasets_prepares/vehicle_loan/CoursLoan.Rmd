@@ -6,20 +6,20 @@ output:
   html_document:
     css: style.css
     number_sections: true
+    toc: true
+    toc_float: true
+    code_folding: show
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
 ```
 
-
-
-
-# Les librairies utiles & les données
-## Introduction
+# Introduction
 Les institutions financières subissent des pertes importantes en raison du défaut de prêts automobiles. Cela a conduit à un resserrement de la souscription de crédits automobiles et à une augmentation des taux de rejet de crédits automobiles. La nécessité d'un meilleur modèle de notation du risque de crédit est par conséquent soulevé par la directions de l'institutions "SuperCar4Everyone". Cela justifie une étude pour estimer les drivers ou variables prédictrices du défaut de crédit automobile. 
 
-"SuperCar4Everyone" vous a donc embauché pour prédire avec précision la probabilité de défaut de l'emprunteur sur un prêt de véhicule dans le premier EMI (Equated Monthly Versements). l'EMI correspond à est un montant de paiement fixe effectué par un emprunteur à un prêteur à une date précise chaque mois civil. Des versements mensuels égaux sont utilisés pour rembourser les intérêts et le principal chaque mois, de sorte que sur un certain nombre d'années, le prêt soit remboursé intégralement. 
+"SuperCar4Everyone" vous a donc embauché pour prédire avec précision la probabilité de défaut de l'emprunteur sur un prêt de véhicule dans le premier EMI (Equated Monthly Installment). l'EMI correspond à est un montant de paiement fixe effectué par un emprunteur à un prêteur à une date précise chaque mois civil. Des versements mensuels égaux sont utilisés pour rembourser les intérêts et le principal chaque mois, de sorte que sur un certain nombre d'années, le prêt soit remboursé intégralement. 
 
 Les informations suivantes concernant le prêt et le prêteur sont fournies:
 
@@ -29,6 +29,7 @@ Les informations suivantes concernant le prêt et le prêteur sont fournies:
 
 Cela garantira que les clients capables de rembourser ne seront pas rejetés et que des critères discriminants pourront être identifiés et pourront être utilisés par "SuperCar4Everyone" pour minimiser les taux de défaut.
 
+# Les librairies utiles & les données
 
 ## Les librairies
 ```{r credit, echo=TRUE,  message=FALSE, warning=FALSE}
@@ -106,9 +107,9 @@ Les étudiant doivent maintenant lire les descriptions des variables présentes,
 
 Garbage in, garbage out : la préparation de la donnée est une étape prépondérante. Une mauvaise ou insuffisante préparation de ses données peut tout simplement annuler toute la pertinence de votre modèle, aussi sophistiqué soit-il. Classiquement, la préparation des données couvre 80% du temps passé pour une modélisation.
 
-Dans un premier temps le re-typage des variables est nécessaire, certains ID peuvent être interprétés comme des valeurs numériques alors qu’ils sont des modalités, le principe est le même pour les booléens.
+Dans un premier temps le re-typage des variables est nécessaire. Par exemple, certains ID peuvent ont été importés comme des valeurs numériques alors qu’ils sont des modalités, le principe est le même pour les booléens. Ci-dessous quelques conversions en type factor :
 
-```{r credit4, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+```{r credit4, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset",class.source = 'fold-hide'}
 dataWrangled <- datainput  %>%
   mutate(Employment.Type = replace_na(datainput$Employment.Type, "None")) %>%
   mutate(State_ID =  as.factor(State_ID)) %>%
@@ -131,9 +132,11 @@ Des modalités trop fragmentées sont difficilement interprétables par les mét
 Pour pouvoir interpréter le regroupement on peut passer du tableau en effectifs au tableau en pourcentages ligne ou colonne. Pour cela, on peut utiliser les fonctions <span style="color: pink;">lprop</span> du package questionr.
 
 Pour calculer les pourcentages ligne :
-```{r credit5, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
-summary(as.factor(dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION))
+```{r credit5, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset",class.source = 'fold-hide'}
+#Observation des modalités de la variable PERFORM_CNS.SCORE.DESCRIPTION
+table(dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION)
 
+#Regroupement de modalités
 dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION[dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION %in% 
   c("C-Very Low Risk", "A-Very Low Risk", "B-Very Low Risk","D-Very Low Risk","F-Low Risk","E-Low Risk","G-Low Risk")] <- "Low"
 dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION[dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION %in% 
@@ -149,7 +152,9 @@ dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION[dataWrangled$PERFORM_CNS.SCORE.DESCRI
     "Not Scored: Sufficient History Not Available",
     "No Bureau History Available")] <- "Not Scored"
 
-summary(as.factor(dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION))
+#refresh de la variable avec les nouvelles modalités
+datainput$PERFORM_CNS.SCORE.DESCRIPTION <- factor(datainput$PERFORM_CNS.SCORE.DESCRIPTION)
+table(dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION)
 
 tcd <- table(datainput$PERFORM_CNS.SCORE.DESCRIPTION, datainput$loan_default)
 lprop(tcd)
@@ -160,7 +165,7 @@ lprop(tcd)
 
 Pour les problèmes plus complexes, un parsing plus fin est parfois nécessaire pour des données <span style="color: blue;">`r head(datainput$AVERAGE.ACCT.AGE)` </span>, l’utilisation d’une expression régulière peut-être une solution. Ici nous voulons un time span et non une modalité (2yrs 3monts => 27 months). 
 
-```{r credit6, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+```{r credit6, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset",class.source = 'fold-hide'}
 dataWrangled <- dataWrangled %>%
   mutate(AAA = as.integer((as.numeric(str_match_all( datainput$AVERAGE.ACCT.AGE,"\\d+(?=yrs)")) *12 
          + as.numeric(str_match_all( datainput$AVERAGE.ACCT.AGE,"\\d+(?=mon)"))))) %>%
@@ -176,7 +181,7 @@ kable(head(dataWrangled%>%
 
 La même question se pose sur les dates, une maturité ou un time span est toujours plus facilement interprétable qu’une date fixe. Elle donne une dimension de temporalité appréciée par les modélisateur et le métier. 
 
-```{r credit7, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+```{r credit7, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset",class.source = 'fold-hide'}
 thisyear = year(Sys.Date())
 dataWrangled <- dataWrangled %>%
   mutate(BorrowerAge = thisyear-year(dmy(Date.of.Birth))) 
@@ -363,7 +368,7 @@ kable( df)
 Le calcul d'une matrice entre les variables d'intérêt permet souvent de séléctionner le meilleur set de variable. Si deux variables sont corrélées entre elles, nous pouvons par exemple ne sélectionner que celle qui est la plus liée avec la variable cible. Ci-dessous un exemple pour quelques variables :
  
 
-```{r credit14, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center'}
+```{r credit14, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center',class.source = 'fold-hide'}
 
 ## Fonction de calcul d'un v de cramer
 fCramerFunction = function(x,y) {
@@ -396,7 +401,7 @@ La matrice n'est pas très lisibile car elle embarque toutes les variables. C'es
 
 Methodologie proposee : on identifie les couples de variable correllees a plus de 30%. Au sein de chaque couple, on ne garde que celle qui est la plus liee au defaut.
 
-```{r credit141, echo=TRUE,  message=TRUE, warning=FALSE, fig.align='center'}
+```{r credit141, echo=TRUE,  message=TRUE, warning=FALSE, fig.align='center',class.source = 'fold-hide'}
 
 ## Selection des couples avec un V de Cramer des plus de 20%
 couples_correl <- df_res[df_res$cramV > 0.3,]
@@ -476,7 +481,11 @@ dataWrangled$State_ID_bin <- factor(dataWrangled$State_ID_bin)
 
 ## La regression logistique
 
-```{r credit15, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center'}
+Une fois nos données préparées et nos variables séléctionnées, nous pouvons ajuster une régression logistique (modèle classiquement utilisé).
+
+Pour éviter le surapprentissage, il est toujours bien de séparer votre jeu de données en base d'apprentissage et base de test. Cette dernière base servira de référence pour l'analyse de performance.
+
+```{r credit15, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center',class.source = 'fold-hide'}
 #creating indices
 trainIndex <- createDataPartition(dataWrangled$loan_default,p=0.75,list=FALSE)
 
@@ -485,18 +494,22 @@ training1_TRAIN <- dataWrangled[trainIndex,] #training data (75% of data)
 training1_TEST <- dataWrangled[-trainIndex,] #testing data (25% of data)
 
 
+#creation d'une formule du type defaut ~ var1+var2...
 var_simple_glm = reformulate(termlabels = features, 
                              response = "loan_default")
 
 
-
+#ajustement de la régression
 simple_logit_model = glm(var_simple_glm, data = training1_TRAIN , family = binomial(link = "logit"))
 
 
-
+#calcul de la probabilité (ensuite nommée score) sur la base test
 training1_TEST$Score = predict(simple_logit_model, newdata = training1_TEST, type = "response")
+
+#Calcul d'une courbe roc
 test_roc_simple = roc(training1_TEST$loan_default ~ training1_TEST$Score, plot = TRUE, print.auc = TRUE)
 
+#Coefficients de la régression
 summary(simple_logit_model) # display results
 ```
 
@@ -504,13 +517,13 @@ Remarque : des coefficients de la regression logistique ne sont pas significativ
 
 Graphiquement, on peut observer la distribution des scores selon le fait que le client soit tombé en défaut ou non : 
 
-```{r credit151, echo=TRUE,  message=TRUE, warning=FALSE, fig.align='center'}
+```{r credit151, echo=TRUE,  message=TRUE, warning=FALSE, fig.align='center',class.source = 'fold-hide'}
 
 ggplot(training1_TEST, aes(x=Score, color=loan_default)) +
   geom_density()
 
 ```
-Comme attendu, les scores des clients tombant en défaut sont distribués dans les valeurs plus élevées.
+Comme attendu, les scores des clients tombant en défaut sont distribués dans les valeurs plus élevées. En effet, la régression logistique ajuste la probabilité d'avoir loan_default=1 en fonction des variables séléctionnées.
 
 
 
@@ -542,9 +555,9 @@ Dans un premier temps, il est toujours utile d'observer graphiquement les série
 
 D'ailleurs, quel est le danger lorsqu'on résume une information à sa moyenne ?
 
-Le tracé des séries temporelles peut se faire avec le package ramCHarts, qui donne un rendu dynamique de vos graphiques :
+Le tracé des séries temporelles peut se faire avec le package ggplot :
 
-```{r quant2, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+```{r quant2, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset",class.source = 'fold-hide'}
 
   #COnversion des dates du jeu de données 
   dataquant$Date <- as.Date(dataquant$Date,"%d/%m/%Y")
@@ -572,7 +585,7 @@ Observons les séries une par une :
 
 En amont, revoyons le format des données : nous allons les mettre en format "long" plutôt qu'en format "wide". C'est une transformation que nous avons déjà faite pour faciliter le tracé du graphique des séries temporelles.
 
-```{r quant3, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+```{r quant3, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset",class.source = 'fold-hide'}
   #Passage en format long des taux de defaut
   dataquant2 <- dataquant %>%
   dplyr::select(Date, ODR_CR1, ODR_CR2,ODR_CR3,ODR_CR4) %>%
@@ -602,7 +615,7 @@ En amont, revoyons le format des données : nous allons les mettre en format "lo
 
 Nous pouvons dans un premier temps regrouper les classes 1 et 2
 
-```{r quant4, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+```{r quant4, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset",class.source = 'fold-hide'}
   #Transformation de la variable en factor : facilite le recodage d'une variable
   dataquant2$Classe <- as.factor(dataquant2$Classe)
 
@@ -630,7 +643,7 @@ Nous pouvons dans un premier temps regrouper les classes 1 et 2
 
 Notons ensuite que la classe 3 montre un changement de régime début 2014. Pour assurer le conservatisme de la PD calibrée nous pouvons par exemple surpondérer les trois dernières années (de 2014 à 2016). Nous avons 32 dates en tout, dont 11 comprises dans la periode à surpondérer. Par exemple, nous pouvons doubler leur poids.
 
-```{r quant5, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+```{r quant5, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset",class.source = 'fold-hide'}
   
   #Creation d'une variable poids. Celle ci vaut 1 partout sauf pour les années 2014, 2015, et 2015 de la classe 2    (anciennement classe 3)
 
@@ -657,7 +670,7 @@ Retraçons la courbe de la classe 3 :
 
 Méthodologie proposée : nous allons ajuster une regression lineaire sur les 20 premiers points de la courbe. La marge de conservatisme correspondra à la moyenne des différences positives entre les taux de défaut prédits par cette regression sur les 12 derniers points et les valeurs observées.
 
-```{r quant7, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+```{r quant7, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset",class.source = 'fold-hide'}
   
   #Selection des taux de defaut de la classe 3
   datacr3 <- dataquant2[dataquant2$Classe == "CR3",]
@@ -701,7 +714,7 @@ La marge d'estimation couvre l'erreur d'estimation liée à la moyenne des taux 
 
 Nous pouvons donc calculer l'erreur commise sur les moyennes de chaque classe : 
 
-```{r quant9, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+```{r quant9, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset",class.source = 'fold-hide'}
   
    # Calcul des moyennes par classe
    data_moy <- aggregate(ODR~Classe,data = dataquant2,FUN=mean)
@@ -755,7 +768,7 @@ Après le calcul des moyennes et leurs ajustements / marges conservatisme, nous 
 Après le calibrage d'une probabilité de défaut, il est toujours nécessaire de vérifier graphiquement que nos valeurs calibrées couvrent bien les taux observés : 
 
 
-```{r quant10, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
+```{r quant10, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset",class.source = 'fold-hide'}
   
  #Apport dans dataquant2 de la PD
   pd <- echelle[,c("Classe","PD")]
