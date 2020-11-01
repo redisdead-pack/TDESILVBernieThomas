@@ -14,11 +14,11 @@ library(caret)
 library(pROC)
 library(purrr)
 
-datainput = read_delim('./data/trainRed.csv', col_names = TRUE, delim = ',')
-write.csv(datainput[createDataPartition(dataWrangled$loan_default,p=0.1,list=FALSE),],'./data/trainRed1.csv')
+ # datainput = read_delim('./data/trainRed.csv', col_names = TRUE, delim = ',')
+ # write.csv(datainput[createDataPartition(datainput$loan_default,p=0.1,list=FALSE),],'./data/trainRed1.csv')
 
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
-datainput = read_delim('./data/trainRed1.csv', col_names = TRUE, delim = ',')
+datainput = read_delim('./data/trainRedAge.csv', col_names = TRUE, delim = ',')
 skim(datainput)
 
 dataWrangled <- datainput  %>%
