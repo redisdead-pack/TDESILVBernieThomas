@@ -18,7 +18,7 @@ library(purrr)
  # write.csv(datainput[createDataPartition(datainput$loan_default,p=0.1,list=FALSE),],'./data/trainRed1.csv')
 
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
-datainput = read_delim('./data/trainRedScore.csv', col_names = TRUE, delim = ',')
+datainput = read_delim('./data/trainRedAge.csv', col_names = TRUE, delim = ',')
 skim(datainput)
 
 dataWrangled <- datainput  %>%
@@ -207,7 +207,7 @@ var_simple_glm = reformulate(termlabels = c("BorrowerAge_bin",
                                             "supplier_id_bin", 
                                             "Employment.Type_bin",
                                             "State_ID_bin",
-                                            "NO.OF_INQUIRIES_bin"), 
+                                            "branch_id_bin"), 
                              response = "loan_default")
 
 

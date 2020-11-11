@@ -18,7 +18,7 @@ library(purrr)
  # write.csv(datainput[createDataPartition(datainput$loan_default,p=0.1,list=FALSE),],'./data/trainRed1.csv')
 
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
-datainput = read_delim('./data/trainRedScore.csv', col_names = TRUE, delim = ',')
+datainput = read_delim('./data/trainTD4V2.csv', col_names = TRUE, delim = ',')
 skim(datainput)
 
 dataWrangled <- datainput  %>%
@@ -66,11 +66,12 @@ thisyear = year(Sys.Date())
 dataWrangled <- dataWrangled %>%
   mutate(BorrowerAge = thisyear-year(dmy(Date.of.Birth))) 
 dataWrangled <- dataWrangled %>%
-  mutate(NbrMonthRelation = 12*(thisyear-year(dmy(DisbursalDate)) + month(dmy(DisbursalDate))))
+  mutate(NbrMonthRelation = time_length(interval(start = dmy(DisbursalDate), end = today()), unit = "months"))
 
 #liste des variables a discretiser : toutes sauf les id, la cible, et les variables non transformees
 to_bin <- names(dataWrangled)
-to_bin <- to_bin[!to_bin %in% c("loan_default","UniqueID","Current_pincode_ID", "Date.of.Birth", "DisbursalDate", "Employee_code_ID", "AVERAGE.ACCT.AGE", "CREDIT.HISTORY.LENGTH")]
+to_bin <- to_bin[!to_bin %in% c("loan_default","UniqueID","Current_pincode_ID", "Date.of.Birth", "DisbursalDate",
+                                "Employee_code_ID", "AVERAGE.ACCT.AGE", "CREDIT.HISTORY.LENGTH")]
 
 bins = woebin(dataWrangled[, c(to_bin,'loan_default')], y = 'loan_default',check_cate_num = F, bin_num_limit = 3)
 
@@ -87,6 +88,7 @@ woebin_plot(bins$PRI.OVERDUE.ACCTS)$PRI.OVERDUE.ACCTS
 woebin_plot(bins$CHL)$CHL
 woebin_plot(bins$branch_id)$branch_id
 woebin_plot(bins$supplier_id)$supplier_id
+woebin_plot(bins$NbrMonthRelation)$NbrMonthRelation
 
 dataWrangled = woebin_ply(dataWrangled, bins, to = 'bin')
 
@@ -207,7 +209,7 @@ var_simple_glm = reformulate(termlabels = c("BorrowerAge_bin",
                                             "supplier_id_bin", 
                                             "Employment.Type_bin",
                                             "State_ID_bin",
-                                            "NO.OF_INQUIRIES_bin"), 
+                                            "NbrMonthRelation_bin"), 
                              response = "loan_default")
 
 
