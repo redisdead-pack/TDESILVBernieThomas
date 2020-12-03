@@ -32,7 +32,7 @@ Cela garantira que les clients capables de rembourser ne seront pas rejetés et 
 # Les librairies utiles & les données
 
 ## Les librairies
-```{r credit, echo=FALSE,  message=FALSE, warning=FALSE}
+```{r credit, echo=TRUE,  message=FALSE, warning=FALSE}
 # load useful libraries
 library(tidyverse)
 library(dplyr)
@@ -279,7 +279,7 @@ Il est à noter que la discrétisation d'une variable numérique constitue une p
 
 En discrétisant, nous cherchons le meilleur découpage de la variable à discrétiser vis à vis de notre variable cible. Plusieurs méthodes existent (khi2, WOE, arbres, etc.) mais le principe est toujours le même : commencer par un découpage fin et regrouper les modalités ayant le même taux de défaut.
 
-Nous allons utiliser la fonction woebin du package scorecard. Il découpe sur la base de la mesure WOE ou Weigth of Evidence. Le package fournit également une fonction woebin_plot qui propose des graphiques lisibles des découpages.
+Nous allons utiliser la fonction woebin du package scorecard. Il découpe sur la base de la mesure WOE ou Weigth of Evidence. Le package fournit également une fonction woebin_plot qui propose des graphiques lisibles des découpages (se limiter à 3).
 
 ```{r credit11, echo=FALSE,  message=FALSE, warning=FALSE, fig.align='center'}
 
@@ -287,7 +287,7 @@ Nous allons utiliser la fonction woebin du package scorecard. Il découpe sur la
 to_bin <- names(dataWrangled)
 to_bin <- to_bin[!to_bin %in% c("loan_default","UniqueID","Current_pincode_ID", "Date.of.Birth", "DisbursalDate", "Employee_code_ID", "AVERAGE.ACCT.AGE", "CREDIT.HISTORY.LENGTH")]
 
-bins = woebin(dataWrangled[, c(to_bin,'loan_default')], y = 'loan_default',check_cate_num = F)
+bins = woebin(dataWrangled[, c(to_bin,'loan_default')], y = 'loan_default',check_cate_num = F, bin_num_limit = 3)
 
 ## Visualize bins
 woebin_plot(bins$ltv)$ltv
@@ -297,7 +297,6 @@ woebin_plot(bins$PRI.DISBURSED.AMOUNT)$PRI.DISBURSED.AMOUNT
 woebin_plot(bins$PRIMARY.INSTAL.AMT)$PRIMARY.INSTAL.AMT
 woebin_plot(bins$BorrowerAge)$BorrowerAge
 woebin_plot(bins$AAA)$AAA
-woebin_plot(bins$BorrowerAge)$BorrowerAge
 woebin_plot(bins$PERFORM_CNS.SCORE.DESCRIPTION)$PERFORM_CNS.SCORE.DESCRIPTION
 woebin_plot(bins$PRI.OVERDUE.ACCTS)$PRI.OVERDUE.ACCTS
 woebin_plot(bins$DELINQUENT.ACCTS.IN.LAST.SIX.MONTHS)$DELINQUENT.ACCTS.IN.LAST.SIX.MONTHS
@@ -374,9 +373,8 @@ Le calcul d'une matrice entre les variables d'intérêt permet souvent de sélé
 fCramerFunction = function(x,y) {
   #message(sprintf(" %s || %s", x, y))
   tbl = dataWrangled %>% select(x,y) %>% table()
-  chisq_pval = round(chisq.test(tbl)$p.value, 2)
   cramV = round(cramer.v(tbl), 2) 
-  data.frame(x, y, chisq_pval, cramV) }
+  data.frame(x, y, cramV) }
 
 # create unique combinations of column names
 # sorting will help getting a better plot (upper triangular)
