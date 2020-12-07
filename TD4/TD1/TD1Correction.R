@@ -22,7 +22,6 @@ skim(datainput)
 dataWrangled <- datainput  %>%
   mutate(Employment.Type = replace_na(datainput$Employment.Type, "None")) %>%
   mutate(State_ID =  as.factor(State_ID)) %>%
-  mutate(branch_id =  as.factor(branch_id)) %>%
   mutate(loan_default =  as.factor(loan_default)) %>%
   mutate(VoterID_flag =  as.factor(VoterID_flag)) %>%
   mutate(supplier_id =  as.factor(supplier_id)) %>%
@@ -30,8 +29,6 @@ dataWrangled <- datainput  %>%
   mutate(Current_pincode_ID =  as.factor(Current_pincode_ID)) %>%
   mutate(Employee_code_ID =  as.factor(Employee_code_ID)) %>%
   mutate(MobileNo_Avl_Flag =  as.factor(MobileNo_Avl_Flag)) %>%
-  mutate(Aadhar_flag =  as.factor(Aadhar_flag)) %>%
-  mutate(PAN_flag =  as.factor(PAN_flag)) %>%
   mutate(Driving_flag =  as.factor(Driving_flag)) %>%
   mutate(Passport_flag =  as.factor(Passport_flag)) 
 
@@ -66,11 +63,20 @@ dataWrangled <- dataWrangled %>%
 dataWrangled <- dataWrangled %>%
   mutate(NbrMonthRelation = time_length(interval(start = dmy(DisbursalDate), end = today()), unit = "months"))
 
+
+#creating indices
+trainIndex <- createDataPartition(dataWrangled$loan_default,p=0.75,list=FALSE)
+
+#splitting data into training/testing data using the trainIndex object
+dataWrangled_TRAIN <- dataWrangled[trainIndex,] #training data (75% of data)
+dataWrangled_TEST <- dataWrangled[-trainIndex,] #testing data (25% of data)
+
 #liste des variables a discretiser : toutes sauf les id, la cible, et les variables non transformees
-to_bin <- names(dataWrangled)
+to_bin <- names(dataWrangled_TRAIN)
 to_bin <- to_bin[!to_bin %in% c("loan_default","UniqueID","Current_pincode_ID", "Date.of.Birth", "DisbursalDate", "Employee_code_ID", "AVERAGE.ACCT.AGE", "CREDIT.HISTORY.LENGTH")]
 
-bins = woebin(dataWrangled[, c(to_bin,'loan_default')], y = 'loan_default',check_cate_num = F, bin_num_limit = 3)
+bins = woebin(dataWrangled_TRAIN[, c(to_bin,'loan_default')], y = 'loan_default',check_cate_num = F, bin_num_limit = 3)
+
 
 woebin_plot(bins$ltv)$ltv
 woebin_plot(bins$disbursed_amount)$disbursed_amount
@@ -86,7 +92,8 @@ woebin_plot(bins$CHL)$CHL
 woebin_plot(bins$branch_id)$branch_id
 woebin_plot(bins$supplier_id)$supplier_id
 
-dataWrangled = woebin_ply(dataWrangled, bins, to = 'bin')
+dataWrangled_TRAIN = woebin_ply(dataWrangled_TRAIN, bins, to = 'bin')
+dataWrangled_TEST <- woebin_ply(dataWrangled_TEST, bins, to = 'bin')
 
 ## Remarque : l'algorithme regroupe parfois toutes les valeurs en une seule modalite
 # Ce qui veut dire que la variable n'est pas discriminante
@@ -94,39 +101,36 @@ dataWrangled = woebin_ply(dataWrangled, bins, to = 'bin')
 
 #variables discretisees 
 binned <- paste0(to_bin,"_bin")
-binned <- binned[binned %in% names(dataWrangled)]
+binned <- binned[binned %in% names(dataWrangled_TRAIN)]
 nbval <-NULL
 for (var in binned) {
-  dt <- as.data.frame(dataWrangled)
+  dt <- as.data.frame(dataWrangled_TRAIN)
   nbmod <- length(unique(dt[,var]))
   nbval <- rbind(nbval,cbind(var,nbmod))
 }
 to_drop <- nbval[nbval[,2] == 1,1]
 
-dataWrangled <- select(dataWrangled,-c(to_drop))
+dataWrangled_TRAIN <- select(dataWrangled_TRAIN,-c(to_drop))
 
 binned <- binned[!binned %in% to_drop]
-dataiv <- as.data.frame(dataWrangled)
+dataiv <- as.data.frame(dataWrangled_TRAIN)
 dataiv <- dataiv[,c("loan_default",binned)]
 
 ## Fonction de calcul d'un v de cramer
 fCramerFunction = function(x,y) {
-  #message(sprintf(" %s || %s", x, y))
-  tbl = dataWrangled %>% select(x,y) %>% table()
-  chisq_pval = round(chisq.test(tbl)$p.value, 2)
+  tbl = dataWrangled_TRAIN %>% select(x,y) %>% table()
   cramV = round(cramer.v(tbl), 2) 
-  data.frame(x, y, chisq_pval, cramV) }
+  data.frame(x, y, cramV) }
 
 # create unique combinations of column names
 # sorting will help getting a better plot (upper triangular)
-df_comb = data.frame(t(combn(sort(c(binned,"loan_default")), 2)), stringsAsFactors = F)
+df_comb = data.frame(t(combn(sort(c("loan_default",binned)), 2)), stringsAsFactors = F)
 
 # apply function to each variable combination
 df_res = purrr::map2_df(df_comb$X1, df_comb$X2, fCramerFunction)
 
 # plot results
 df_res %>%
-  #ggplot(aes(x,y,fill=chisq_pval))+
   ggplot(aes(x,y,fill=cramV))+
   geom_tile()+
   geom_text(aes(x,y,label=cramV))+
@@ -134,7 +138,7 @@ df_res %>%
   theme_classic()+ theme(axis.text.x = element_text(angle = 60, hjust = 1))
 
 ## Selection des couples avec un V de Cramer des plus de 20%
-couples_correl <- df_res[df_res$cramV > 0.3,]
+couples_correl <- df_res[df_res$cramV > 0.2,]
 
 ## Dans les couples identifies : le defaut est intégré. On enlève les lignes contenant le defaut
 couples_correl <- couples_correl[couples_correl$x != "loan_default" & couples_correl$y != "loan_default",]
@@ -153,6 +157,7 @@ couples_correl <- merge.data.frame(couples_correl,correl_def,by.x = "y",by.y = "
 ## Selection parmi les couples
 couples_correl$selection <- "x"
 couples_correl$selection[couples_correl$correl_def.y > couples_correl$correl_def.x] <- "y"
+couples_correl$selection[couples_correl$correl_def.y < 0.05 | couples_correl$correl_def.x < 0.05] <- "NA"
 
 
 #Liste des variables a eliminer du modele
@@ -174,50 +179,55 @@ df_res_new %>%
   scale_fill_gradient(low="white", high="red")+
   theme_classic()+ theme(axis.text.x = element_text(angle = 60, hjust = 1))
 
-dataWrangled$branch_id_bin <- as.factor(dataWrangled$branch_id_bin)
-levels(dataWrangled$branch_id_bin) <- paste0("branch_group",1:length(levels(dataWrangled$branch_id_bin)))
-dataWrangled$branch_id_bin <- factor(dataWrangled$branch_id_bin)
+dataWrangled_TRAIN$branch_id_bin <- as.factor(dataWrangled_TRAIN$branch_id_bin)
+levels(dataWrangled_TRAIN$branch_id_bin) <- paste0("branch_group",1:length(levels(dataWrangled_TRAIN$branch_id_bin)))
+dataWrangled_TRAIN$branch_id_bin <- factor(dataWrangled_TRAIN$branch_id_bin)
 
-dataWrangled$supplier_id_bin <- as.factor(dataWrangled$supplier_id_bin)
-levels(dataWrangled$supplier_id_bin) <- paste0("supplier_group",1:length(levels(dataWrangled$supplier_id_bin)))
-dataWrangled$supplier_id_bin <- factor(dataWrangled$supplier_id_bin)
+dataWrangled_TRAIN$supplier_id_bin <- as.factor(dataWrangled_TRAIN$supplier_id_bin)
+levels(dataWrangled_TRAIN$supplier_id_bin) <- paste0("supplier_group",1:length(levels(dataWrangled_TRAIN$supplier_id_bin)))
+dataWrangled_TRAIN$supplier_id_bin <- factor(dataWrangled_TRAIN$supplier_id_bin)
 
-dataWrangled$manufacturer_id_bin <- as.factor(dataWrangled$manufacturer_id_bin)
-levels(dataWrangled$manufacturer_id_bin) <- paste0("manuf_group",1:length(levels(dataWrangled$manufacturer_id_bin)))
-dataWrangled$manufacturer_id_bin <- factor(dataWrangled$manufacturer_id_bin)
+dataWrangled_TRAIN$manufacturer_id_bin <- as.factor(dataWrangled_TRAIN$manufacturer_id_bin)
+levels(dataWrangled_TRAIN$manufacturer_id_bin) <- paste0("manuf_group",1:length(levels(dataWrangled_TRAIN$manufacturer_id_bin)))
+dataWrangled_TRAIN$manufacturer_id_bin <- factor(dataWrangled_TRAIN$manufacturer_id_bin)
 
-dataWrangled$State_ID_bin <- as.factor(dataWrangled$State_ID_bin)
-levels(dataWrangled$State_ID_bin) <- paste0("state_group",1:length(levels(dataWrangled$State_ID_bin)))
-dataWrangled$State_ID_bin <- factor(dataWrangled$State_ID_bin)
+dataWrangled_TRAIN$State_ID_bin <- as.factor(dataWrangled_TRAIN$State_ID_bin)
+levels(dataWrangled_TRAIN$State_ID_bin) <- paste0("state_group",1:length(levels(dataWrangled_TRAIN$State_ID_bin)))
+dataWrangled_TRAIN$State_ID_bin <- factor(dataWrangled_TRAIN$State_ID_bin)
 
-#creating indices
-trainIndex <- createDataPartition(dataWrangled$loan_default,p=0.75,list=FALSE)
+######
+dataWrangled_TEST$branch_id_bin <- as.factor(dataWrangled_TEST$branch_id_bin)
+levels(dataWrangled_TEST$branch_id_bin) <- paste0("branch_group",1:length(levels(dataWrangled_TEST$branch_id_bin)))
+dataWrangled_TEST$branch_id_bin <- factor(dataWrangled_TEST$branch_id_bin)
 
-#splitting data into training/testing data using the trainIndex object
-training1_TRAIN <- dataWrangled[trainIndex,] #training data (75% of data)
-training1_TEST <- dataWrangled[-trainIndex,] #testing data (25% of data)
+dataWrangled_TEST$supplier_id_bin <- as.factor(dataWrangled_TEST$supplier_id_bin)
+levels(dataWrangled_TEST$supplier_id_bin) <- paste0("supplier_group",1:length(levels(dataWrangled_TEST$supplier_id_bin)))
+dataWrangled_TEST$supplier_id_bin <- factor(dataWrangled_TEST$supplier_id_bin)
+
+dataWrangled_TEST$manufacturer_id_bin <- as.factor(dataWrangled_TEST$manufacturer_id_bin)
+levels(dataWrangled_TEST$manufacturer_id_bin) <- paste0("manuf_group",1:length(levels(dataWrangled_TEST$manufacturer_id_bin)))
+dataWrangled_TEST$manufacturer_id_bin <- factor(dataWrangled_TEST$manufacturer_id_bin)
+
+dataWrangled_TEST$State_ID_bin <- as.factor(dataWrangled_TEST$State_ID_bin)
+levels(dataWrangled_TEST$State_ID_bin) <- paste0("state_group",1:length(levels(dataWrangled_TEST$State_ID_bin)))
+dataWrangled_TEST$State_ID_bin <- factor(dataWrangled_TEST$State_ID_bin)
+
 
 
 #creation d'une formule du type defaut ~ var1+var2...
-var_simple_glm = reformulate(termlabels = c("BorrowerAge_bin",
-                                            "disbursed_amount_bin",
-                                            "PERFORM_CNS.SCORE.DESCRIPTION_bin", 
-                                            "supplier_id_bin", 
-                                            "Employment.Type_bin",
-                                            "State_ID_bin",
-                                            "branch_id_bin"), 
+var_simple_glm = reformulate(termlabels = features, 
                              response = "loan_default")
 
 
 #ajustement de la régression
-simple_logit_model = glm(var_simple_glm, data = training1_TRAIN , family = binomial(link = "logit"))
+simple_logit_model = glm(var_simple_glm, data =  dataWrangled_TRAIN , family = binomial(link = "logit"))
 
 
 #calcul de la probabilité (ensuite nommée score) sur la base test
-training1_TEST$Score = predict(simple_logit_model, newdata = training1_TEST, type = "response")
+dataWrangled_TEST$Score = predict(simple_logit_model, newdata = dataWrangled_TEST, type = "response")
 
 #Calcul d'une courbe roc
-test_roc_simple = roc(training1_TEST$loan_default ~ training1_TEST$Score, plot = TRUE, print.auc = TRUE)
+test_roc_simple = roc(dataWrangled_TEST$loan_default ~ dataWrangled_TEST$Score, plot = TRUE, print.auc = TRUE)
 
 #Coefficients de la régression
 summary(simple_logit_model) # display results
