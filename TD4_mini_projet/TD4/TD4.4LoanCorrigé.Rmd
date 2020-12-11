@@ -1,14 +1,15 @@
 ---
 title: "TD4 ML - Credit scoring"
-author: "Thomas & Bernie"
-date: "17/09/2020"
+author: "Heriniaina Ramanantsoa & Thomas Duplanil"
+date: "01/12/2020"
 output:
-  html_document:
-    css: style.css
-    number_sections: true
+  prettydoc::html_pretty:
+    theme: architect
+    highlight: github
+    css: ../style.css
     toc: true
-    toc_float: true
-    code_folding: show
+    number_sections: true 
+    self_contained: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -17,9 +18,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Introduction
-Les institutions financières subissent des pertes importantes en raison du défaut de prêts automobiles. Cela a conduit à un resserrement de la souscription de crédits automobiles et à une augmentation des taux de rejet de crédits automobiles. La nécessité d'un meilleur modèle de notation du risque de crédit est par conséquent soulevé par la directions de l'institutions "SuperCar4Everyone". Cela justifie une étude pour estimer les drivers ou variables prédictrices du défaut de crédit automobile. 
+Les institutions financières peuvent subir des pertes importantes en raison du défaut de prêts automobiles. Cela a conduit à un resserrement de la souscription et à une augmentation des taux de rejet de crédits automobiles. La nécessité d'un meilleur modèle de notation du risque de crédit est par conséquent soulevé par la direction de l'institution "SuperCar4Everyone". Cela justifie une étude pour identifier les drivers ou variables prédictrices du défaut de crédit automobile. 
 
-"SuperCar4Everyone" vous a donc embauché pour prédire avec précision la probabilité de défaut de l'emprunteur sur un prêt de véhicule dans le premier EMI (Equated Monthly Installment). l'EMI correspond à est un montant de paiement fixe effectué par un emprunteur à un prêteur à une date précise chaque mois civil. Des versements mensuels égaux sont utilisés pour rembourser les intérêts et le principal chaque mois, de sorte que sur un certain nombre d'années, le prêt soit remboursé intégralement. 
+"SuperCar4Everyone" vous a donc embauché pour prédire avec précision la probabilité de défaut de l'emprunteur sur un prêt de véhicule dans le premier EMI (Equated Monthly Installment). L'EMI est un montant de paiement fixe effectué par un emprunteur à un prêteur à une date précise chaque mois civil. Des versements mensuels égaux sont utilisés pour rembourser les intérêts et le principal chaque mois, de sorte que sur un certain nombre d'années, le prêt soit remboursé intégralement. 
 
 Les informations suivantes concernant le prêt et le prêteur sont fournies:
 
@@ -27,7 +28,7 @@ Les informations suivantes concernant le prêt et le prêteur sont fournies:
 - Informations sur le prêt (détails du décaissement, montant, IME, ratio prêt / valeur, etc.)
 - Données et historique du bureau (score du bureau, nombre de comptes actifs, statut des autres prêts, historique de crédit, etc.)
 
-Cela garantira que les clients capables de rembourser ne seront pas rejetés et que des critères discriminants pourront être identifiés et pourront être utilisés par "SuperCar4Everyone" pour minimiser les taux de défaut.
+Le modèle que vous allez construire doit garantir que les clients capables de rembourser ne seront pas rejetés. Pour cela, le modèle doit contenir les variables les plus discriminantes, sélectionnées par vos soins afin d'offrir la meilleure performance possible tel que l’entreprise “SuperCar4Everyone” pourra minimiser ses taux de défaut.
 
 # Les librairies utiles & les données
 
@@ -52,7 +53,8 @@ library(purrr)
 
 ## Les Datas
 
-L’entreprise « SuperCar4Everyone » malgré leur système de données logé dans le cloud, nous met à disposition la forme la plus évoluée de stockage de données : le CSV. Ce fichier contient un certain nombre de d’informations et un expert métier est là pour répondre à vos questions.
+Malgré leur système de données logé dans le cloud, l’entreprise «SuperCar4Everyone », vous met à disposition la forme la plus évoluée de stockage de
+données : le CSV. Ce fichier contient un certain nombre d’informations et un expert métier est là pour répondre à vos questions.
 
 Contenu du fichier CSV:
 
@@ -64,6 +66,8 @@ Contenu du fichier CSV:
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 datainput = read_delim('./data/data_dictionary.csv', col_names = TRUE, delim = ',')
 kable(datainput)
+
+set.seed(42)
 ```
 
 
@@ -72,13 +76,13 @@ kable(datainput)
 
 ```{r credit2, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
-datainput = read_delim('./data/trainTD2.csv', col_names = TRUE, delim = ',')
+datainput = read_delim('./data/TD4Data.csv', col_names = TRUE, delim = ',')
 skim(datainput)
 ```
 
-L' appréhension de la data via la fonction ‘skim’ est déjà un bon début car il nous donne l’idée de la population des contrats à étudier `r nrow(datainput)` et de l'interprétation des variables en 'character' ou 'numeric'. Elle nous indique les valeurs manquantes et le poid de ces 'n_missing'.
+La fonction skim nous permet d'avoir une vision plus précise du dataset : le nombre total de contrats (`r nrow(datainput)`), les variables typées en ‘character’ ou ‘numeric’, les valeurs manquantes par variables (‘n_missing’) et leur poids.
 
-Le format de certaines variables nécessite d’être retravaillé, une rapide vue des variable permet de se faire une première idée :
+Le format de certaines variables nécessite d’être retravaillé, une rapide vue des variables permet de se faire une première idée :
 
 ```{r credit3, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset"}
 kable(head(datainput%>%
@@ -87,7 +91,6 @@ kable(head(datainput%>%
           Date.of.Birth,
           supplier_id,
           Employment.Type,
-          PERFORM_CNS.SCORE,
           PERFORM_CNS.SCORE.DESCRIPTION,
           loan_default,
           AVERAGE.ACCT.AGE,
@@ -96,9 +99,9 @@ kable(head(datainput%>%
 
 ### Echange avec les métiers
 
-Une première séléction des variables peut se faire via un échange avec les banquiers, après tout, ils connaissent mieux leur métier que nous! Il nous orientent sur les données qu'ils suivent pour mesurer le niveau de risque d'un client. Il sera utile de retenir a minima ces données et de les enrichir de variables que nous identifierons statistiquement.
+Une première sélection des variables peut se faire via un échange avec les banquiers, après tout, ils connaissent mieux leur métier que nous! Ils nous orientent sur les données qu'ils suivent pour mesurer le niveau de risque d'un client. Il sera utile de retenir à minima ces données et de les enrichir de variables que nous identifierons statistiquement.
 
-Les étudiant doivent maintenant lire les descriptions des variables présentes, regarder les distributions et les premières valeurs et poser des questions aux métiers pour une près sélection des variables et une étape de wrangling.
+Les étudiants doivent maintenant lire les descriptions des variables présentes, regarder les distributions et les premières valeurs et poser des questions aux métiers pour une présélection des variables et une étape de wrangling.
 
 
 # Deep dive
@@ -113,16 +116,12 @@ Dans un premier temps le re-typage des variables est nécessaire. Par exemple, c
 dataWrangled <- datainput  %>%
   mutate(Employment.Type = replace_na(datainput$Employment.Type, "None")) %>%
   mutate(State_ID =  as.factor(State_ID)) %>%
-  mutate(branch_id =  as.factor(branch_id)) %>%
   mutate(loan_default =  as.factor(loan_default)) %>%
   mutate(VoterID_flag =  as.factor(VoterID_flag)) %>%
   mutate(supplier_id =  as.factor(supplier_id)) %>%
   mutate(manufacturer_id =  as.factor(manufacturer_id)) %>%
   mutate(Current_pincode_ID =  as.factor(Current_pincode_ID)) %>%
-  mutate(Employee_code_ID =  as.factor(Employee_code_ID)) %>%
   mutate(MobileNo_Avl_Flag =  as.factor(MobileNo_Avl_Flag)) %>%
-  mutate(Aadhar_flag =  as.factor(Aadhar_flag)) %>%
-  mutate(PAN_flag =  as.factor(PAN_flag)) %>%
   mutate(Driving_flag =  as.factor(Driving_flag)) %>%
   mutate(Passport_flag =  as.factor(Passport_flag)) 
 ```
@@ -167,16 +166,16 @@ Pour les problèmes plus complexes, un parsing plus fin est parfois nécessaire 
 
 ```{r credit6, echo=TRUE,  message=FALSE, warning=FALSE, layout="l-body-outset",class.source = 'fold-hide'}
 dataWrangled <- dataWrangled %>%
-  mutate(AvrLoantenure = as.integer((as.numeric(str_match_all( datainput$AVERAGE.ACCT.AGE,"\\d+(?=yrs)")) *12 
+  mutate(AAA = as.integer((as.numeric(str_match_all( datainput$AVERAGE.ACCT.AGE,"\\d+(?=yrs)")) *12 
          + as.numeric(str_match_all( datainput$AVERAGE.ACCT.AGE,"\\d+(?=mon)"))))) %>%
-  mutate(TimeSincefirstloan = (as.numeric(str_match_all( datainput$CREDIT.HISTORY.LENGTH,"\\d+(?=yrs)")) *12 
+  mutate(CHL = (as.numeric(str_match_all( datainput$CREDIT.HISTORY.LENGTH,"\\d+(?=yrs)")) *12 
          + as.numeric(str_match_all( datainput$CREDIT.HISTORY.LENGTH,"\\d+(?=mon)"))))
 
 kable(head(dataWrangled%>%
   select (AVERAGE.ACCT.AGE,
-          AvrLoantenure,
+          AAA,
           CREDIT.HISTORY.LENGTH,
-          TimeSincefirstloan)))
+          CHL)))
 ```
 
 La même question se pose sur les dates, une maturité ou un time span est toujours plus facilement interprétable qu’une date fixe. Elle donne une dimension de temporalité appréciée par les modélisateur et le métier. 
@@ -220,11 +219,12 @@ dataWrangled%>%
 Les modélisateurs doivent revenir avec des questions pour le business et exclure les premières variables
 
 
-## Selection des drivers pour le modèle
+## Sélection des variables pour le modèle
 
-### Analyses univariées
+### Analyses univariées & bivariées
 
 Nous allons étudier une variable souvent révélatrice de la qualité de la saisie de la donnée. L’âge d’un client nous permet de détecter des valeurs fausses ou aberrantes. 
+Les modélisateurs pourront étudier plusieurs variables qui semblent pertinentes pour faire le processus de sélection.
 
 ```{r credit10, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center'}
 summary(dataWrangled$BorrowerAge)
@@ -275,19 +275,31 @@ grid.arrange( bx, bxDef, dpDef ,ncol=2)
 
 La discrétisation des variables est une pratique courante pour le credit scoring. Elle permet de transformer des variables numériques (âge, ancienneté du client, LTV) en variables catégorielle.
 
-Il est à noter que la discrétisation d'une variable numérique constitue une perte d'information et n'est pas un pré-requis à la regression logistique. Néanmoins, la création de modalités permet souvent une lecture plus simple et une catégorisation des clients.
+Il est à noter que la discrétisation d'une variable numérique constitue une perte d'information et n'est pas un pré-requis à la régression logistique. Néanmoins, la création de modalités permet souvent une lecture plus simple et une catégorisation des clients.
 
 En discrétisant, nous cherchons le meilleur découpage de la variable à discrétiser vis à vis de notre variable cible. Plusieurs méthodes existent (khi2, WOE, arbres, etc.) mais le principe est toujours le même : commencer par un découpage fin et regrouper les modalités ayant le même taux de défaut.
 
-Nous allons utiliser la fonction woebin du package scorecard. Il découpe sur la base de la mesure WOE ou Weigth of Evidence. Le package fournit également une fonction woebin_plot qui propose des graphiques lisibles des découpages.
+Nous allons utiliser la fonction woebin du package scorecard. Il découpe sur la base de la mesure WOE ou Weigth of Evidence. Le package fournit également une fonction woebin_plot qui propose des graphiques lisibles des découpages (se limiter à 3 classes).
+
+```{r creditSep, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center'}
+#creating indices
+trainIndex <- createDataPartition(dataWrangled$loan_default,p=0.75,list=FALSE)
+
+#splitting data into training/testing data using the trainIndex object
+dataWrangled_TRAIN <- dataWrangled[trainIndex,] #training data (75% of data)
+dataWrangled_TEST <- dataWrangled[-trainIndex,] #testing data (25% of data)
+
+```
 
 ```{r credit11, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center'}
 
 #liste des variables a discretiser : toutes sauf les id, la cible, et les variables non transformees
-to_bin <- names(dataWrangled)
+to_bin <- names(dataWrangled_TRAIN)
 to_bin <- to_bin[!to_bin %in% c("loan_default","UniqueID","Current_pincode_ID", "Date.of.Birth", "DisbursalDate", "Employee_code_ID", "AVERAGE.ACCT.AGE", "CREDIT.HISTORY.LENGTH")]
 
-bins = woebin(dataWrangled[, c(to_bin,'loan_default')], y = 'loan_default',check_cate_num = F)
+
+
+bins = woebin(dataWrangled_TRAIN[, c(to_bin,'loan_default')], y = 'loan_default',check_cate_num = F, bin_num_limit = 3)
 
 ## Visualize bins
 woebin_plot(bins$ltv)$ltv
@@ -296,13 +308,14 @@ woebin_plot(bins$PRI.CURRENT.BALANCE)$PRI.CURRENT.BALANCE
 woebin_plot(bins$PRI.DISBURSED.AMOUNT)$PRI.DISBURSED.AMOUNT
 woebin_plot(bins$PRIMARY.INSTAL.AMT)$PRIMARY.INSTAL.AMT
 woebin_plot(bins$BorrowerAge)$BorrowerAge
-woebin_plot(bins$AvrLoantenure)$AvrLoantenure
+woebin_plot(bins$AAA)$AAA
 woebin_plot(bins$PERFORM_CNS.SCORE.DESCRIPTION)$PERFORM_CNS.SCORE.DESCRIPTION
 woebin_plot(bins$PRI.OVERDUE.ACCTS)$PRI.OVERDUE.ACCTS
 woebin_plot(bins$DELINQUENT.ACCTS.IN.LAST.SIX.MONTHS)$DELINQUENT.ACCTS.IN.LAST.SIX.MONTHS
 
 
-dataWrangled = woebin_ply(dataWrangled, bins, to = 'bin')
+dataWrangled_TRAIN = woebin_ply(dataWrangled_TRAIN, bins, to = 'bin')
+dataWrangled_TEST = woebin_ply(dataWrangled_TEST, bins, to = 'bin')
 
 ## Remarque : l'algorithme regroupe parfois toutes les valeurs en une seule modalite
 # Ce qui veut dire que la variable n'est pas discriminante
@@ -310,16 +323,16 @@ dataWrangled = woebin_ply(dataWrangled, bins, to = 'bin')
 
 #variables discretisees 
 binned <- paste0(to_bin,"_bin")
-binned <- binned[binned %in% names(dataWrangled)]
+binned <- binned[binned %in% names(dataWrangled_TRAIN)]
 nbval <-NULL
 for (var in binned) {
-  dt <- as.data.frame(dataWrangled)
+  dt <- as.data.frame(dataWrangled_TRAIN)
   nbmod <- length(unique(dt[,var]))
   nbval <- rbind(nbval,cbind(var,nbmod))
 }
 to_drop <- nbval[nbval[,2] == 1,1]
 
-dataWrangled <- select(dataWrangled,-c(to_drop))
+dataWrangled_TRAIN <- select(dataWrangled_TRAIN,-c(to_drop))
 ```
 
 ### Pouvoir discriminant des variables
@@ -335,7 +348,7 @@ kable( df)
 ```
 ```{r credit22, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center', out.width= "80%"}
 binned <- binned[!binned %in% to_drop]
-dataiv <- as.data.frame(dataWrangled)
+dataiv <- as.data.frame(dataWrangled_TRAIN)
 dataiv <- dataiv[,c("loan_default",binned)]
 
 kable( iv(dataiv, y = 'loan_default') %>%
@@ -344,7 +357,7 @@ kable( iv(dataiv, y = 'loan_default') %>%
   arrange( desc(info_value) ), digits = 2)
 ```
 
-### Corrélations intra modèle
+### Corrélations intra modèle (Étape optionnelle)
 
 L'utilisation de variables explicatives corrélées entre elles crée de nombreux biais. Instinctivement, on peut se dire qu'une redondance d'information n'est pas utile dans un modèle (si l'âge du client est discriminant, il n'est pas nécessaire de l'utiliser deux fois, en année et en mois par exemple).
 
@@ -366,16 +379,41 @@ kable( df)
 
 Le calcul d'une matrice entre les variables d'intérêt permet souvent de séléctionner le meilleur set de variable. Si deux variables sont corrélées entre elles, nous pouvons par exemple ne sélectionner que celle qui est la plus liée avec la variable cible. Ci-dessous un exemple pour quelques variables :
  
+Voici la fonction qui affiche la matrice (remplacer DATAFRAME et ALL_COLUMN_NAME) 
+ ```{r creditexample, eval=FALSE}
+
+## Fonction de calcul d'un v de cramer
+fCramerFunction = function(x,y) {
+  tbl =  DATAFRAME %>% select(x,y) %>% table()
+  cramV = round(cramer.v(tbl), 2) 
+  data.frame(x, y, cramV) }
+
+# create unique combinations of column names
+# sorting will help getting a better plot (upper triangular)
+df_comb = data.frame(t(combn(sort(c(ALL_COLUMN_NAME,"loan_default")), 2)), stringsAsFactors = F)
+
+# apply function to each variable combination
+df_res = purrr::map2_df(df_comb$X1, df_comb$X2, fCramerFunction)
+
+# plot results
+df_res %>%
+  ggplot(aes(x,y,fill=cramV))+
+  geom_tile()+
+  geom_text(aes(x,y,label=cramV))+
+  scale_fill_gradient(low="white", high="red")+
+  theme_classic()+ theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+
+```
+ 
 
 ```{r credit14, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center',class.source = 'fold-hide'}
 
 ## Fonction de calcul d'un v de cramer
 fCramerFunction = function(x,y) {
-  #message(sprintf(" %s || %s", x, y))
-  tbl = dataWrangled %>% select(x,y) %>% table()
-  chisq_pval = round(chisq.test(tbl)$p.value, 2)
+  tbl = dataWrangled_TRAIN %>% select(x,y) %>% table()
   cramV = round(cramer.v(tbl), 2) 
-  data.frame(x, y, chisq_pval, cramV) }
+  data.frame(x, y, cramV) }
 
 # create unique combinations of column names
 # sorting will help getting a better plot (upper triangular)
@@ -396,14 +434,14 @@ df_res %>%
 
 ```
 
-La matrice n'est pas très lisibile car elle embarque toutes les variables. C'est ici que nous devons faire une selection.
+La matrice n'est pas très lisible car elle embarque toutes les variables. C'est ici que nous devons faire une sélection.
 
-Methodologie proposee : on identifie les couples de variable correllees a plus de 30%. Au sein de chaque couple, on ne garde que celle qui est la plus liee au defaut.
+Méthodologie proposée : on identifie les couples de variable corrélées a plus de 20%. Au sein de chaque couple, on ne garde que celle qui est la plus liee au defaut.
 
 ```{r credit141, echo=TRUE,  message=TRUE, warning=FALSE, fig.align='center',class.source = 'fold-hide'}
 
 ## Selection des couples avec un V de Cramer des plus de 20%
-couples_correl <- df_res[df_res$cramV > 0.3,]
+couples_correl <- df_res[df_res$cramV > 0.2,]
 
 ## Dans les couples identifies : le defaut est intégré. On enlève les lignes contenant le defaut
 couples_correl <- couples_correl[couples_correl$x != "loan_default" & couples_correl$y != "loan_default",]
@@ -442,7 +480,6 @@ Après cette séléction, nous pouvons afficher une matrice de correlation allé
 df_res_new <- df_res[df_res$x %in% c("loan_default",features) & df_res$y %in% c("loan_default",features),]
 
 df_res_new %>% 
-  #ggplot(aes(x,y,fill=chisq_pval))+
   ggplot(aes(x,y,fill=cramV))+
   geom_tile()+
   geom_text(aes(x,y,label=cramV))+
@@ -453,44 +490,55 @@ df_res_new %>%
 
 ### Dernières mises en forme
 
-Des variables d'identifiant ont été séléctionnées : branch_id_bin, supplier_id_bin, manufacturer_id_bin, State_ID_bin.
+Des variables d'identifiant ont été sélectionnées : branch_id_bin, supplier_id_bin, manufacturer_id_bin, State_ID_bin.
 Il s'agit de codes permettant d'identifier respectivement le réseau de vente, la concession, la marque du véhicule, et l'état (au sens géographique) de la vente.
 
 Nous n'avons pas plus d'information sur ces codes. Pour une question d'affichage, nous allons donc fixer leurs modalités à des valeurs génériques (group1, group2, etc.).
 
 
 ```{r credit143, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center'}
-dataWrangled$branch_id_bin <- as.factor(dataWrangled$branch_id_bin)
-levels(dataWrangled$branch_id_bin) <- paste0("branch_group",1:length(levels(dataWrangled$branch_id_bin)))
-dataWrangled$branch_id_bin <- factor(dataWrangled$branch_id_bin)
+dataWrangled_TRAIN$branch_id_bin <- as.factor(dataWrangled_TRAIN$branch_id_bin)
+levels(dataWrangled_TRAIN$branch_id_bin) <- paste0("branch_group",1:length(levels(dataWrangled_TRAIN$branch_id_bin)))
+dataWrangled_TRAIN$branch_id_bin <- factor(dataWrangled_TRAIN$branch_id_bin)
 
-dataWrangled$supplier_id_bin <- as.factor(dataWrangled$supplier_id_bin)
-levels(dataWrangled$supplier_id_bin) <- paste0("supplier_group",1:length(levels(dataWrangled$supplier_id_bin)))
-dataWrangled$supplier_id_bin <- factor(dataWrangled$supplier_id_bin)
+dataWrangled_TRAIN$supplier_id_bin <- as.factor(dataWrangled_TRAIN$supplier_id_bin)
+levels(dataWrangled_TRAIN$supplier_id_bin) <- paste0("supplier_group",1:length(levels(dataWrangled_TRAIN$supplier_id_bin)))
+dataWrangled_TRAIN$supplier_id_bin <- factor(dataWrangled_TRAIN$supplier_id_bin)
 
-dataWrangled$manufacturer_id_bin <- as.factor(dataWrangled$manufacturer_id_bin)
-levels(dataWrangled$manufacturer_id_bin) <- paste0("manuf_group",1:length(levels(dataWrangled$manufacturer_id_bin)))
-dataWrangled$manufacturer_id_bin <- factor(dataWrangled$manufacturer_id_bin)
+dataWrangled_TRAIN$manufacturer_id_bin <- as.factor(dataWrangled_TRAIN$manufacturer_id_bin)
+levels(dataWrangled_TRAIN$manufacturer_id_bin) <- paste0("manuf_group",1:length(levels(dataWrangled_TRAIN$manufacturer_id_bin)))
+dataWrangled_TRAIN$manufacturer_id_bin <- factor(dataWrangled_TRAIN$manufacturer_id_bin)
 
-dataWrangled$State_ID_bin <- as.factor(dataWrangled$State_ID_bin)
-levels(dataWrangled$State_ID_bin) <- paste0("state_group",1:length(levels(dataWrangled$State_ID_bin)))
-dataWrangled$State_ID_bin <- factor(dataWrangled$State_ID_bin)
+dataWrangled_TRAIN$State_ID_bin <- as.factor(dataWrangled_TRAIN$State_ID_bin)
+levels(dataWrangled_TRAIN$State_ID_bin) <- paste0("state_group",1:length(levels(dataWrangled_TRAIN$State_ID_bin)))
+dataWrangled_TRAIN$State_ID_bin <- factor(dataWrangled_TRAIN$State_ID_bin)
+
+dataWrangled_TEST$branch_id_bin <- as.factor(dataWrangled_TEST$branch_id_bin)
+levels(dataWrangled_TEST$branch_id_bin) <- paste0("branch_group",1:length(levels(dataWrangled_TEST$branch_id_bin)))
+dataWrangled_TEST$branch_id_bin <- factor(dataWrangled_TEST$branch_id_bin)
+
+dataWrangled_TEST$supplier_id_bin <- as.factor(dataWrangled_TEST$supplier_id_bin)
+levels(dataWrangled_TEST$supplier_id_bin) <- paste0("supplier_group",1:length(levels(dataWrangled_TEST$supplier_id_bin)))
+dataWrangled_TEST$supplier_id_bin <- factor(dataWrangled_TEST$supplier_id_bin)
+
+dataWrangled_TEST$manufacturer_id_bin <- as.factor(dataWrangled_TEST$manufacturer_id_bin)
+levels(dataWrangled_TEST$manufacturer_id_bin) <- paste0("manuf_group",1:length(levels(dataWrangled_TEST$manufacturer_id_bin)))
+dataWrangled_TEST$manufacturer_id_bin <- factor(dataWrangled_TEST$manufacturer_id_bin)
+
+dataWrangled_TEST$State_ID_bin <- as.factor(dataWrangled_TEST$State_ID_bin)
+levels(dataWrangled_TEST$State_ID_bin) <- paste0("state_group",1:length(levels(dataWrangled_TEST$State_ID_bin)))
+dataWrangled_TEST$State_ID_bin <- factor(dataWrangled_TEST$State_ID_bin)
 
 ```
 
 ## La regression logistique
 
-Une fois nos données préparées et nos variables séléctionnées, nous pouvons ajuster une régression logistique (modèle classiquement utilisé).
+Une fois nos données préparées et nos variables sélectionnées, nous pouvons ajuster une régression logistique (modèle classiquement utilisé).
 
 Pour éviter le surapprentissage, il est toujours bien de séparer votre jeu de données en base d'apprentissage et base de test. Cette dernière base servira de référence pour l'analyse de performance.
 
 ```{r credit15, echo=TRUE,  message=FALSE, warning=FALSE, fig.align='center',class.source = 'fold-hide'}
-#creating indices
-trainIndex <- createDataPartition(dataWrangled$loan_default,p=0.75,list=FALSE)
 
-#splitting data into training/testing data using the trainIndex object
-training1_TRAIN <- dataWrangled[trainIndex,] #training data (75% of data)
-training1_TEST <- dataWrangled[-trainIndex,] #testing data (25% of data)
 
 
 #creation d'une formule du type defaut ~ var1+var2...
@@ -499,30 +547,31 @@ var_simple_glm = reformulate(termlabels = features,
 
 
 #ajustement de la régression
-simple_logit_model = glm(var_simple_glm, data = training1_TRAIN , family = binomial(link = "logit"))
+simple_logit_model = glm(var_simple_glm, data = dataWrangled_TRAIN , family = binomial(link = "logit"))
 
 
 #calcul de la probabilité (ensuite nommée score) sur la base test
-training1_TEST$Score = predict(simple_logit_model, newdata = training1_TEST, type = "response")
+dataWrangled_TEST$Score = predict(simple_logit_model, newdata = dataWrangled_TEST, type = "response")
 
 #Calcul d'une courbe roc
-test_roc_simple = roc(training1_TEST$loan_default ~ training1_TEST$Score, plot = TRUE, print.auc = TRUE)
+test_roc_simple = roc(dataWrangled_TEST$loan_default ~ dataWrangled_TEST$Score, plot = TRUE, print.auc = TRUE)
 
 #Coefficients de la régression
-summary(simple_logit_model) # display results
+#summary(simple_logit_model) # display results
 ```
 
-Remarque : des coefficients de la regression logistique ne sont pas significativement non nuls. Dans cette situation, il faudrait soit exclure la variable, soit revoir sa discrétisation jusqu'à avoir des coefficients tous significatifs
+Remarque : des coefficients de la régression logistique ne sont pas significativement non nuls. Dans cette situation, il faudrait soit exclure la variable, soit revoir sa discrétisation jusqu'à avoir des coefficients tous significatifs
 
 Graphiquement, on peut observer la distribution des scores selon le fait que le client soit tombé en défaut ou non : 
 
 ```{r credit151, echo=TRUE,  message=TRUE, warning=FALSE, fig.align='center',class.source = 'fold-hide'}
 
-ggplot(training1_TEST, aes(x=Score, color=loan_default)) +
+ggplot(dataWrangled_TEST, aes(x=Score, color=loan_default)) +
   geom_density()
 
 ```
-Comme attendu, les scores des clients tombant en défaut sont distribués dans les valeurs plus élevées. En effet, la régression logistique ajuste la probabilité d'avoir loan_default=1 en fonction des variables séléctionnées.
+Comme attendu, les scores des clients tombant en défaut sont distribués dans les valeurs plus élevées. En effet, la régression logistique ajuste la probabilité d'avoir loan_default=1 en fonction des variables sélectionnées.
+
 
 
 
