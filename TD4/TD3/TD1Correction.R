@@ -16,7 +16,7 @@ library(purrr)
 
 
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
-datainput = read_delim('./data/TD1Data.csv', col_names = TRUE, delim = ',')
+datainput = read_delim('./data/trainTD3Simpl.csv', col_names = TRUE, delim = ',')
 skim(datainput)
 
 dataWrangled <- datainput  %>%
@@ -35,7 +35,7 @@ dataWrangled <- datainput  %>%
   mutate(Driving_flag =  as.factor(Driving_flag)) %>%
   mutate(Passport_flag =  as.factor(Passport_flag)) 
 
-#Regroupement de modalités
+#Regroupement de modalit?s
 dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION[dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION %in% 
                                              c("C-Very Low Risk", "A-Very Low Risk", "B-Very Low Risk","D-Very Low Risk","F-Low Risk","E-Low Risk","G-Low Risk")] <- "Low"
 dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION[dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION %in% 
@@ -51,7 +51,7 @@ dataWrangled$PERFORM_CNS.SCORE.DESCRIPTION[dataWrangled$PERFORM_CNS.SCORE.DESCRI
                                                "Not Scored: Sufficient History Not Available",
                                                "No Bureau History Available")] <- "Not Scored"
 
-#refresh de la variable avec les nouvelles modalités
+#refresh de la variable avec les nouvelles modalit?s
 datainput$PERFORM_CNS.SCORE.DESCRIPTION <- factor(datainput$PERFORM_CNS.SCORE.DESCRIPTION)
 
 dataWrangled <- dataWrangled %>%
@@ -136,7 +136,7 @@ df_res %>%
 ## Selection des couples avec un V de Cramer des plus de 20%
 couples_correl <- df_res[df_res$cramV > 0.3,]
 
-## Dans les couples identifies : le defaut est intégré. On enlève les lignes contenant le defaut
+## Dans les couples identifies : le defaut est int?gr?. On enl?ve les lignes contenant le defaut
 couples_correl <- couples_correl[couples_correl$x != "loan_default" & couples_correl$y != "loan_default",]
 
 #On isole les correlations avec le defaut
@@ -146,7 +146,7 @@ correl_def$variable[correl_def$y != "loan_default"] <- correl_def$y[correl_def$y
 correl_def <- correl_def[,c("cramV","variable")]
 names(correl_def) <- c("correl_def","variable")
 
-#Table de selection : couples correlés et lien avec le defaut de chaque membre du couple
+#Table de selection : couples correl?s et lien avec le defaut de chaque membre du couple
 couples_correl <- merge.data.frame(couples_correl,correl_def,by.x = "x",by.y = "variable",all.x = T)
 couples_correl <- merge.data.frame(couples_correl,correl_def,by.x = "y",by.y = "variable",all.x = T)
 
@@ -209,15 +209,15 @@ var_simple_glm = reformulate(termlabels = c("BorrowerAge_bin",
                              response = "loan_default")
 
 
-#ajustement de la régression
+#ajustement de la r?gression
 simple_logit_model = glm(var_simple_glm, data = training1_TRAIN , family = binomial(link = "logit"))
 
 
-#calcul de la probabilité (ensuite nommée score) sur la base test
+#calcul de la probabilit? (ensuite nomm?e score) sur la base test
 training1_TEST$Score = predict(simple_logit_model, newdata = training1_TEST, type = "response")
 
 #Calcul d'une courbe roc
 test_roc_simple = roc(training1_TEST$loan_default ~ training1_TEST$Score, plot = TRUE, print.auc = TRUE)
 
-#Coefficients de la régression
+#Coefficients de la r?gression
 summary(simple_logit_model) # display results
